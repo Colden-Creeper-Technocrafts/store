@@ -1,21 +1,27 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import HomePage from '../pages/HomePage.vue'
-import LoginPage from '../pages/LoginPage.vue'
-import RegisterPage from '../pages/RegisterPage.vue'
+import StoreHomePage from '../store/HomePage.vue'
+import AdminDashboardPage from '../admin/DashboardPage.vue'
+import AdminLoginPage from '../admin/LoginPage.vue'
+import AdminSettingsPage from '../admin/SettingsPage.vue'
 
 const routes = [
   {
     path: '/',
-    component: HomePage
+    component: StoreHomePage,
+    meta: { layout: 'store' }
   },
   {
-    path: '/login',
-    component: LoginPage
+    path: '/backstore/dashboard',
+    component: AdminDashboardPage
   },
   {
-    path: '/register',
-    component: RegisterPage
+    path: '/backstore/login',
+    component: AdminLoginPage
+  },
+  {
+    path: '/backstore/settings',
+    component: AdminSettingsPage
   }
 ]
 
