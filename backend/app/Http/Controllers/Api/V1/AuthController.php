@@ -9,6 +9,32 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:6'
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password)
+        ]);
+
+        $user->assignRole('Customer');
+
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful',
+            'token' => $token,
+            'user' => $user
+        ]);
+    }
+
     public function login(Request $request)
     {
         $request->validate([
@@ -30,6 +56,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
+            'message' => 'Login successful',
             'token' => $token,
             'user' => $user
         ]);
@@ -40,6 +67,16 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'user' => $request->user()
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logout successful'
         ]);
     }
 }

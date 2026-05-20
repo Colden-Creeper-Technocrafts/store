@@ -3,17 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 
+Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware(['auth:sanctum', 'role:Admin'])->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
 
-    Route::get('/admin-dashboard', function () {
+    Route::get('/profile', [AuthController::class, 'profile']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Welcome Admin'
-        ]);
-
-    });
+    Route::post('/logout', [AuthController::class, 'logout']);
 
 });
