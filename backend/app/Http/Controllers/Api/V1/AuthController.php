@@ -9,6 +9,18 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    private function userPayload(User $user): array
+    {
+        $role = $user->getRoleNames()->first();
+
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $role,
+        ];
+    }
+
     public function register(Request $request)
     {
         $request->validate([
@@ -26,12 +38,14 @@ class AuthController extends Controller
         $user->assignRole('Customer');
 
         $token = $user->createToken('api-token')->plainTextToken;
+        $user = $user->fresh();
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
             'token' => $token,
-            'user' => $user
+            'role' => $user->getRoleNames()->first(),
+            'user' => $this->userPayload($user)
         ]);
     }
 
@@ -58,15 +72,19 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'token' => $token,
-            'user' => $user
+            'role' => $user->getRoleNames()->first(),
+            'user' => $this->userPayload($user)
         ]);
     }
 
     public function profile(Request $request)
     {
+        /** @var User $user */
+        $user = $request->user();
+
         return response()->json([
             'success' => true,
-            'user' => $request->user()
+            'user' => $this->userPayload($user)
         ]);
     }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  title: string
-  subtitle: string
+withDefaults(defineProps<{
+  title?: string
+  subtitle?: string
 }>(), {
   title: 'E-Commerce',
   subtitle: 'Welcome Back'

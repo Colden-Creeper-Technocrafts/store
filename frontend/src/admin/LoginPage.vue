@@ -28,9 +28,17 @@ const login = async () => {
             password: password.value
         })
 
-        authStore.setToken(response.data.token)
+        const { token, user, role } = response.data
+        const normalizedRole = (role || user?.role || '').toLowerCase()
 
-        router.push('/backstore/dashboard')
+        authStore.setAuth({ token, user, role })
+
+        if (normalizedRole === 'admin') {
+            router.push('/backstore/dashboard')
+            return
+        }
+
+        router.push('/')
 
     } catch (err) {
 
