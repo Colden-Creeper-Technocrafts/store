@@ -23,7 +23,7 @@ const login = async () => {
 
     try {
 
-        const response = await api.post('/login', {
+        const response = await api.post('/backstore/login', {
             email: email.value,
             password: password.value
         })

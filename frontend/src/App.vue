@@ -2,15 +2,20 @@
 import { computed } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import StoreLayout from './layouts/StoreLayout.vue'
+import { useStorefront } from './services/storefront'
+import LadiesStore from './layouts/LadiesStore.vue'
+import GroceryStore from './layouts/GroceryStore.vue'
 import AdminLayout from './layouts/AdminLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { storeLayout } = useStorefront()
+
 const isLoggedIn = computed(() => !!authStore.token)
 const isStorePage = computed(() => route.meta.layout === 'store')
 const isAdminPage = computed(() => route.path.startsWith('/backstore'))
+const activeStoreLayout = computed(() => (storeLayout.value === 'grocery' ? GroceryStore : LadiesStore))
 
 const logout = () => {
   authStore.logout()
@@ -19,7 +24,7 @@ const logout = () => {
 </script>
 
 <template>
-  <component v-if="isStorePage" :is="StoreLayout">
+  <component v-if="isStorePage" :is="activeStoreLayout">
     <RouterView />
   </component>
 

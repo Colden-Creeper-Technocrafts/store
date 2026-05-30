@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const isLoggedIn = computed(() => !!authStore.token)
 
 const menuItems = [
   {
@@ -82,6 +83,7 @@ const logout = () => {
           <h1 class="text-xl font-bold text-slate-900">Admin Panel</h1>
         </div>
         <button
+          v-if="isLoggedIn"
           @click="logout"
           class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
         >
@@ -90,8 +92,16 @@ const logout = () => {
       </div>
     </header>
 
-    <div class="grid min-h-[calc(100vh-4rem)] gap-6 xl:grid-cols-[280px_1fr]">
-      <aside class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm m-4">
+    <div
+      :class="[
+        'min-h-[calc(100vh-4rem)] gap-6',
+        isLoggedIn ? 'grid xl:grid-cols-[280px_1fr]' : 'block'
+      ]"
+    >
+      <aside
+        v-if="isLoggedIn"
+        class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm m-4"
+      >
         <div class="mb-8">
           <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Menu</p>
           <h2 class="mt-3 text-2xl font-semibold text-slate-900">Navigation</h2>
@@ -131,7 +141,7 @@ const logout = () => {
         </nav>
       </aside>
 
-      <main class="space-y-8 pr-4 pb-8">
+      <main :class="isLoggedIn ? 'space-y-8 pr-4 pb-8' : 'p-4'">
         <slot />
       </main>
     </div>
