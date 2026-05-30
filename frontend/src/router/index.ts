@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import StoreHomePage from '../store/HomePage.vue'
+import StorefrontHomePage from '../pages/Storefront/HomePage.vue'
+import StorefrontStorePage from '../pages/Storefront/StorePage.vue'
+import StorefrontCheckoutPage from '../pages/Storefront/CheckoutPage.vue'
+import StorefrontCartPage from '../pages/Storefront/CartPage.vue'
+import StorefrontOrdersPage from '../pages/Storefront/OrdersPage.vue'
 import AdminDashboardPage from '../admin/DashboardPage.vue'
 import AdminLoginPage from '../admin/LoginPage.vue'
 import AdminSettingsPage from '../admin/SettingsPage.vue'
@@ -10,7 +14,27 @@ import CustomerProfilePage from '../customer/ProfilePage.vue'
 const routes = [
   {
     path: '/',
-    component: StoreHomePage,
+    component: StorefrontHomePage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/store',
+    component: StorefrontStorePage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/checkout',
+    component: StorefrontCheckoutPage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/cart',
+    component: StorefrontCartPage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/orders',
+    component: StorefrontOrdersPage,
     meta: { layout: 'store' }
   },
   {
