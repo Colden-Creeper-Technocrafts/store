@@ -30,7 +30,7 @@ class StoreSettingsSeeder extends Seeder
             throw new \RuntimeException('StoreSettingsSeeder requires exactly one active store.');
         }
 
-        DB::table('store_settings')->truncate();
+        DB::table('store_settings')->delete();
 
         DB::table('store_settings')->insert(
             array_map(static fn (array $store) => [

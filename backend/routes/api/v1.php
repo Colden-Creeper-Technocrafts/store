@@ -8,6 +8,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/backstore/login', [AuthController::class, 'backstoreLogin']);
 Route::get('/storefront', [StorefrontController::class, 'show']);
+Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 
 Route::middleware('auth:sanctum')->group(function () {
 

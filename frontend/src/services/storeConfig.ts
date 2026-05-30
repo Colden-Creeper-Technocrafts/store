@@ -70,7 +70,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
     description: 'For grocery and general retail',
     icon: '🛒',
     colors: { primary: 'green', accent: 'emerald' },
-    categories: ['Groceries', 'Dairy', 'Bakery', 'Meat', 'Produce', 'Frozen'],
+    categories: ['Groceries', 'Dairy', 'Bakery', 'Produce', 'Frozen'],
     attributes: ['Weight', 'Expiry Date', 'Barcode', 'Organic']
   },
   {

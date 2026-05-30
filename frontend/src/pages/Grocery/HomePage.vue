@@ -16,7 +16,7 @@ const categories = [
   },
   {
     id: 3,
-    name: 'Dairy & Eggs',
+    name: 'Dairy & Bread',
     itemCount: '42 items',
     note: 'Milk, curd, cheese, butter',
     image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80'
@@ -63,11 +63,11 @@ const freshPicks = [
   },
   {
     id: 3,
-    name: 'Farm Eggs',
-    unit: '12 pcs',
+    name: 'Vanilla Yogurt Cup',
+    unit: '500g',
     price: '$4.20',
     tag: 'Best Value',
-    image: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=900&q=80'
+    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=900&q=80'
   },
   {
     id: 4,
