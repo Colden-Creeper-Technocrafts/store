@@ -5,10 +5,48 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    private function invalidCredentialsResponse(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid credentials'
+        ], 401);
+    }
+
+    private function authResponse(User $user, string $message = 'Login successful'): JsonResponse
+    {
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'token' => $token,
+            'role' => $user->getRoleNames()->first(),
+            'user' => $this->userPayload($user)
+        ]);
+    }
+
+    private function attemptLogin(Request $request): ?User
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return null;
+        }
+
+        return $user;
+    }
+
     private function userPayload(User $user): array
     {
         $role = $user->getRoleNames()->first();
@@ -51,30 +89,31 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+        $user = $this->attemptLogin($request);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid credentials'
-            ], 401);
+        if (!$user) {
+            return $this->invalidCredentialsResponse();
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        return $this->authResponse($user);
+    }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful',
-            'token' => $token,
-            'role' => $user->getRoleNames()->first(),
-            'user' => $this->userPayload($user)
-        ]);
+    public function backstoreLogin(Request $request)
+    {
+        $user = $this->attemptLogin($request);
+
+        if (!$user) {
+            return $this->invalidCredentialsResponse();
+        }
+
+        if (!$user->hasRole('Admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin credentials are required for backstore login'
+            ], 403);
+        }
+
+        return $this->authResponse($user, 'Admin login successful');
     }
 
     public function profile(Request $request)
