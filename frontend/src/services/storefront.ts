@@ -15,8 +15,11 @@ const storeName = ref('Store')
 const isLoaded = ref(false)
 const categories = ref<StoreCategoryNode[]>([])
 const categoriesLoaded = ref(false)
+const products = ref<Array<Record<string, unknown>>>([])
+const productsLoaded = ref(false)
 let loadingPromise: Promise<void> | null = null
 let categoriesLoadingPromise: Promise<void> | null = null
+let productsLoadingPromise: Promise<void> | null = null
 
 const normalizeLayout = (layout: unknown): StoreLayoutType => {
   return String(layout ?? '').toLowerCase() === 'grocery' ? 'grocery' : 'ladies'
@@ -84,4 +87,37 @@ export const loadStoreCategories = async (force = false): Promise<void> => {
   })()
 
   return categoriesLoadingPromise
+}
+
+export const productsStore = () => ({
+  products,
+  productsLoaded,
+})
+
+export const loadStoreProducts = async (categoryIds: number[] = []): Promise<void> => {
+  if (productsLoadingPromise) {
+    return productsLoadingPromise
+  }
+
+  productsLoadingPromise = (async () => {
+    try {
+      const params: Record<string, unknown> = {}
+
+      if (categoryIds.length) {
+        params.category_ids = categoryIds
+      }
+
+      const response = await api.get('/storefront/products', { params })
+      const payload = response?.data?.products
+
+      products.value = Array.isArray(payload) ? payload : []
+    } catch {
+      products.value = []
+    } finally {
+      productsLoaded.value = true
+      productsLoadingPromise = null
+    }
+  })()
+
+  return productsLoadingPromise
 }

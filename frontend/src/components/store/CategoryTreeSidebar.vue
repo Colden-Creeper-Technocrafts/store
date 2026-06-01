@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, nextTick } from 'vue'
 import CategoryTreeNode from './CategoryTreeNode.vue'
 
 type CategoryNode = {
@@ -15,6 +16,28 @@ const props = defineProps<{
   loading?: boolean
   tone: 'ladies' | 'grocery'
 }>()
+
+const emit = defineEmits<{
+  'selected-updated': (categoryIds: number[]) => void
+}>()
+
+const categoryNodeRefs = ref<any[]>([])
+
+const getSelectedIds = (): number[] => {
+  return categoryNodeRefs.value.flatMap((node) => {
+    if (node && typeof node.getSelectedIds === 'function') {
+      return node.getSelectedIds()
+    }
+
+    return []
+  })
+}
+
+const propagateSelectionChange = async (): Promise<void> => {
+  // wait for Vue to flush updates from child components before reading refs
+  await nextTick()
+  emit('selected-updated', getSelectedIds())
+}
 
 const containerClass =
   props.tone === 'grocery'
@@ -38,6 +61,8 @@ const emptyClass = props.tone === 'grocery' ? 'text-emerald-700' : 'text-stone-6
         :key="category.id"
         :node="category"
         :tone="tone"
+        @selection-change="propagateSelectionChange"
+        ref="categoryNodeRefs"
       />
     </ul>
   </aside>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
@@ -118,5 +119,110 @@ class StorefrontController extends Controller
             ],
             'categories' => $this->buildCategoryTree($categories),
         ]);
+    }
+
+    public function products(Request $request): JsonResponse
+    {
+        try {
+            $store = $this->resolveActiveStore();
+
+            if (!$store) {
+                return response()->json([
+                    'success' => true,
+                    'store' => null,
+                    'products' => [],
+                ]);
+            }
+
+            $categories = DB::table('categories')
+                ->select(['id', 'parent_category_id', 'store_setting_id', 'is_active'])
+                ->where('store_setting_id', $store->id)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get();
+
+            $categoryIds = $request->query('category_ids', []);
+
+            if (!is_array($categoryIds)) {
+                $categoryIds = array_filter(explode(',', (string) $categoryIds), 'strlen');
+            }
+
+            $categoryIds = array_map('intval', $categoryIds);
+            $categoryIds = array_filter($categoryIds, fn ($id) => $id > 0);
+
+            if ($categoryIds) {
+                $categoryIds = $this->resolveCategoryDescendants($categories, $categoryIds);
+            }
+
+            $productsQuery = DB::table('products')
+                ->leftJoin('product_images', function ($join) {
+                    $join->on('products.id', '=', 'product_images.product_id')
+                        ->where('product_images.is_primary', true);
+                })
+                ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+                ->select([
+                    'products.id',
+                    'products.name',
+                    'products.slug',
+                    'products.sku',
+                    'products.short_description',
+                    'products.price',
+                    'products.sale_price',
+                    'products.quantity',
+                    'products.weight',
+                    'products.category_id',
+                    'categories.name as category_name',
+                    'product_images.image',
+                ])
+                ->where('products.status', true);
+
+            if ($categoryIds) {
+                $productsQuery->whereIn('products.category_id', $categoryIds);
+            }
+
+            $products = $productsQuery->orderBy('products.name')->get();
+        } catch (QueryException) {
+            return response()->json([
+                'success' => true,
+                'store' => null,
+                'products' => [],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'store' => [
+                'id' => $store->id,
+                'name' => (string) $store->store_name,
+                'layout' => $this->normalizedLayout($store->layout ?? null),
+            ],
+            'products' => $products,
+        ]);
+    }
+
+    private function resolveCategoryDescendants(Collection $categories, array $selectedIds): array
+    {
+        $allIds = [];
+
+        $childrenByParent = $categories->groupBy('parent_category_id');
+
+        $stack = $selectedIds;
+
+        while (!empty($stack)) {
+            $id = array_pop($stack);
+
+            if (in_array($id, $allIds, true)) {
+                continue;
+            }
+
+            $allIds[] = $id;
+
+            $children = $childrenByParent[$id] ?? collect();
+            foreach ($children as $child) {
+                $stack[] = $child->id;
+            }
+        }
+
+        return $allIds;
     }
 }
