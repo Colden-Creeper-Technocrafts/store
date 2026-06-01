@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\StorefrontController;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -14,6 +15,8 @@ Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/profile', [AuthController::class, 'profile']);
+
+    Route::apiResource('/categories', CategoryController::class);
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
