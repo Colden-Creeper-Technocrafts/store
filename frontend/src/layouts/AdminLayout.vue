@@ -37,6 +37,8 @@ const menuItems = [
     icon: '📦',
     children: [
       { title: 'Catalog', to: '/products' },
+      { title: 'Product Master', to: '/backstore/products' },
+      { title: 'Categories', to: '/backstore/categories' },
       { title: 'Inventory', to: '/products/inventory' },
       { title: 'Pricing', to: '/products/pricing' }
     ]
