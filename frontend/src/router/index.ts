@@ -8,6 +8,8 @@ import StorefrontOrdersPage from '../pages/Storefront/OrdersPage.vue'
 import AdminDashboardPage from '../admin/DashboardPage.vue'
 import AdminLoginPage from '../admin/LoginPage.vue'
 import AdminSettingsPage from '../admin/SettingsPage.vue'
+import AdminCategoriesPage from '../admin/CategoriesPage.vue'
+import AdminProductsPage from '../admin/ProductsPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 
@@ -60,6 +62,16 @@ const routes = [
   {
     path: '/backstore/login',
     component: AdminLoginPage
+  },
+  {
+    path: '/backstore/categories',
+    component: AdminCategoriesPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/products',
+    component: AdminProductsPage,
+    meta: { requiresAdmin: true }
   },
   {
     path: '/backstore/settings',
