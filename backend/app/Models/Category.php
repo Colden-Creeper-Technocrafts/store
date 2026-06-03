@@ -32,4 +32,20 @@ class Category extends Model
     {
         return $this->hasMany(Category::class, 'parent_category_id');
     }
+
+    /**
+     * Recursively deactivate all descendant categories.
+     */
+    public function deactivateDescendants(): void
+    {
+        $children = $this->children()->get();
+
+        foreach ($children as $child) {
+            // Force update to false regardless of current state
+            $child->update(['is_active' => false]);
+
+            // Recurse into grandchildren
+            $child->deactivateDescendants();
+        }
+    }
 }

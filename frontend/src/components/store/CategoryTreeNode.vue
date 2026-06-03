@@ -16,7 +16,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'selection-change': () => void
+  (event: 'selection-change'): void
 }>()
 
 const selected = ref(false)

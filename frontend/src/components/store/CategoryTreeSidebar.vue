@@ -18,7 +18,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'selected-updated': (categoryIds: number[]) => void
+  (event: 'selected-updated', categoryIds: number[]): void
 }>()
 
 const categoryNodeRefs = ref<any[]>([])

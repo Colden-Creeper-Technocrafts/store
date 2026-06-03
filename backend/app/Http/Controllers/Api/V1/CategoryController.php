@@ -3,32 +3,16 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
+use App\Interfaces\CategoryRepositoryInterface;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
-    private function resolveActiveStore(): ?object
+    public function __construct(private readonly CategoryRepositoryInterface $categories)
     {
-        $store = DB::table('store_settings')
-            ->select(['id', 'store_name', 'layout', 'is_active'])
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->first();
-
-        if (!$store) {
-            $store = DB::table('store_settings')
-                ->select(['id', 'store_name', 'layout', 'is_active'])
-                ->orderByDesc('is_active')
-                ->orderBy('id')
-                ->first();
-        }
-
-        return $store;
     }
 
     private function buildTree($categories, $parentId = null)
@@ -55,16 +39,13 @@ class CategoryController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $store = $this->resolveActiveStore();
+            $store = $this->categories->resolveActiveStore();
 
             if (!$store) {
                 return response()->json([ 'success' => true, 'categories' => [] ]);
             }
 
-            $categories = Category::where('store_setting_id', $store->id)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get();
+            $categories = $this->categories->allForStore((int) $store->id);
 
             return response()->json([
                 'success' => true,
@@ -77,15 +58,13 @@ class CategoryController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $store = $this->resolveActiveStore();
+        $store = $this->categories->resolveActiveStore();
 
         if (!$store) {
             return response()->json([ 'success' => false, 'message' => 'Store not found' ], 404);
         }
 
-        $category = Category::where('store_setting_id', $store->id)
-            ->where('id', $id)
-            ->first();
+        $category = $this->categories->findForStore((int) $store->id, $id);
 
         if (!$category) {
             return response()->json([ 'success' => false, 'message' => 'Category not found' ], 404);
@@ -94,96 +73,53 @@ class CategoryController extends Controller
         return response()->json(['success' => true, 'category' => $category]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreCategoryRequest $request): JsonResponse
     {
-        $store = $this->resolveActiveStore();
+        $store = $this->categories->resolveActiveStore();
 
         if (!$store) {
             return response()->json([ 'success' => false, 'message' => 'Store not found' ], 404);
         }
 
-        $payload = $request->validate([
-            'name' => 'required|string|max:255',
-            'slug' => ['required', 'string', 'max:255', Rule::unique('categories', 'slug')],
-            'description' => 'nullable|string',
-            'parent_category_id' => [
-                'nullable',
-                Rule::exists('categories', 'id')->where('store_setting_id', $store->id),
-            ],
-            'sort_order' => 'nullable|integer|min:0',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $category = Category::create([
-            'store_setting_id' => $store->id,
-            'parent_category_id' => $payload['parent_category_id'] ?? null,
-            'name' => $payload['name'],
-            'slug' => $payload['slug'],
-            'description' => $payload['description'] ?? null,
-            'sort_order' => $payload['sort_order'] ?? 0,
-            'is_active' => $payload['is_active'] ?? true,
-        ]);
+        $category = $this->categories->createForStore((int) $store->id, $request->validated());
 
         return response()->json(['success' => true, 'category' => $category]);
     }
 
-    public function update(Request $request, int $id): JsonResponse
+    public function update(UpdateCategoryRequest $request, int $id): JsonResponse
     {
-        $store = $this->resolveActiveStore();
+        $store = $this->categories->resolveActiveStore();
 
         if (!$store) {
             return response()->json([ 'success' => false, 'message' => 'Store not found' ], 404);
         }
 
-        $category = Category::where('store_setting_id', $store->id)
-            ->where('id', $id)
-            ->first();
+        $category = $this->categories->findForStore((int) $store->id, $id);
 
         if (!$category) {
             return response()->json([ 'success' => false, 'message' => 'Category not found' ], 404);
         }
 
-        $payload = $request->validate([
-            'name' => 'required|string|max:255',
-            'slug' => ['required', 'string', 'max:255', Rule::unique('categories', 'slug')->ignore($category->id)],
-            'description' => 'nullable|string',
-            'parent_category_id' => [
-                'nullable',
-                Rule::exists('categories', 'id')->where('store_setting_id', $store->id),
-            ],
-            'sort_order' => 'nullable|integer|min:0',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $category->update([
-            'parent_category_id' => $payload['parent_category_id'] ?? null,
-            'name' => $payload['name'],
-            'slug' => $payload['slug'],
-            'description' => $payload['description'] ?? null,
-            'sort_order' => $payload['sort_order'] ?? 0,
-            'is_active' => $payload['is_active'] ?? true,
-        ]);
+        $category = $this->categories->update($category, $request->validated());
 
         return response()->json(['success' => true, 'category' => $category]);
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $store = $this->resolveActiveStore();
+        $store = $this->categories->resolveActiveStore();
 
         if (!$store) {
             return response()->json([ 'success' => false, 'message' => 'Store not found' ], 404);
         }
 
-        $category = Category::where('store_setting_id', $store->id)
-            ->where('id', $id)
-            ->first();
+        $category = $this->categories->findForStore((int) $store->id, $id);
 
         if (!$category) {
             return response()->json([ 'success' => false, 'message' => 'Category not found' ], 404);
         }
 
-        $category->delete();
+        $this->categories->delete($category);
 
         return response()->json(['success' => true]);
     }

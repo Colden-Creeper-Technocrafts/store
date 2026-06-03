@@ -15,7 +15,17 @@ const storeName = ref('Store')
 const isLoaded = ref(false)
 const categories = ref<StoreCategoryNode[]>([])
 const categoriesLoaded = ref(false)
-const products = ref<Array<Record<string, unknown>>>([])
+export type StorefrontProduct = {
+  id: number
+  name: string
+  category_name?: string | null
+  short_description?: string | null
+  image?: string | null
+  price?: number | null
+  sale_price?: number | null
+}
+
+const products = ref<StorefrontProduct[]>([])
 const productsLoaded = ref(false)
 let loadingPromise: Promise<void> | null = null
 let categoriesLoadingPromise: Promise<void> | null = null

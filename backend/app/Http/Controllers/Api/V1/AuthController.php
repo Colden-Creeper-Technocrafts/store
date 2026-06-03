@@ -3,13 +3,19 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Interfaces\AuthRepositoryInterface;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuthRepositoryInterface $auth)
+    {
+    }
+
     private function invalidCredentialsResponse(): JsonResponse
     {
         return response()->json([
@@ -31,20 +37,11 @@ class AuthController extends Controller
         ]);
     }
 
-    private function attemptLogin(Request $request): ?User
+    private function attemptLogin(LoginRequest $request): ?User
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+        $payload = $request->validated();
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return null;
-        }
-
-        return $user;
+        return $this->auth->attemptLogin($payload['email'], $payload['password']);
     }
 
     private function userPayload(User $user): array
@@ -59,24 +56,11 @@ class AuthController extends Controller
         ];
     }
 
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $request->validate([
-            'name' => 'required',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6'
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password)
-        ]);
-
-        $user->assignRole('Customer');
+        $user = $this->auth->createCustomer($request->validated());
 
         $token = $user->createToken('api-token')->plainTextToken;
-        $user = $user->fresh();
 
         return response()->json([
             'success' => true,
@@ -87,7 +71,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
         $user = $this->attemptLogin($request);
 
@@ -98,7 +82,7 @@ class AuthController extends Controller
         return $this->authResponse($user);
     }
 
-    public function backstoreLogin(Request $request)
+    public function backstoreLogin(LoginRequest $request)
     {
         $user = $this->attemptLogin($request);
 
@@ -129,7 +113,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $this->auth->logout($request->user());
 
         return response()->json([
             'success' => true,

@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Interfaces\AuthRepositoryInterface;
+use App\Interfaces\CategoryRepositoryInterface;
+use App\Interfaces\ProductRepositoryInterface;
+use App\Interfaces\ProductVariantRepositoryInterface;
+use App\Interfaces\StorefrontRepositoryInterface;
+use App\Repositories\AuthRepository;
+use App\Repositories\CategoryRepository;
+use App\Repositories\ProductRepository;
+use App\Repositories\ProductVariantRepository;
+use App\Repositories\StorefrontRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +21,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(AuthRepositoryInterface::class, AuthRepository::class);
+        $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
+        $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
+        $this->app->bind(ProductVariantRepositoryInterface::class, ProductVariantRepository::class);
+        $this->app->bind(StorefrontRepositoryInterface::class, StorefrontRepository::class);
     }
 
     /**

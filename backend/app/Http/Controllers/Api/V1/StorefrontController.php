@@ -3,31 +3,16 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorefrontProductsRequest;
+use App\Interfaces\StorefrontRepositoryInterface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
 
 class StorefrontController extends Controller
 {
-    private function resolveActiveStore(): ?object
+    public function __construct(private readonly StorefrontRepositoryInterface $storefront)
     {
-        $store = DB::table('store_settings')
-            ->select(['id', 'store_name', 'layout', 'is_active'])
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->first();
-
-        if (!$store) {
-            $store = DB::table('store_settings')
-                ->select(['id', 'store_name', 'layout', 'is_active'])
-                ->orderByDesc('is_active')
-                ->orderBy('id')
-                ->first();
-        }
-
-        return $store;
     }
 
     private function normalizedLayout(?string $layout): string
@@ -58,7 +43,7 @@ class StorefrontController extends Controller
     public function show(): JsonResponse
     {
         try {
-            $store = $this->resolveActiveStore();
+            $store = $this->storefront->resolveActiveStore();
         } catch (QueryException) {
             $store = null;
         }
@@ -77,7 +62,7 @@ class StorefrontController extends Controller
     public function categories(): JsonResponse
     {
         try {
-            $store = $this->resolveActiveStore();
+            $store = $this->storefront->resolveActiveStore();
 
             if (!$store) {
                 return response()->json([
@@ -87,21 +72,7 @@ class StorefrontController extends Controller
                 ]);
             }
 
-            $categories = DB::table('categories')
-                ->select([
-                    'id',
-                    'store_setting_id',
-                    'parent_category_id',
-                    'name',
-                    'slug',
-                    'description',
-                    'sort_order',
-                ])
-                ->where('store_setting_id', $store->id)
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get();
+            $categories = $this->storefront->activeCategories((int) $store->id);
         } catch (QueryException) {
             return response()->json([
                 'success' => true,
@@ -121,10 +92,10 @@ class StorefrontController extends Controller
         ]);
     }
 
-    public function products(Request $request): JsonResponse
+    public function products(StorefrontProductsRequest $request): JsonResponse
     {
         try {
-            $store = $this->resolveActiveStore();
+            $store = $this->storefront->resolveActiveStore();
 
             if (!$store) {
                 return response()->json([
@@ -134,53 +105,14 @@ class StorefrontController extends Controller
                 ]);
             }
 
-            $categories = DB::table('categories')
-                ->select(['id', 'parent_category_id', 'store_setting_id', 'is_active'])
-                ->where('store_setting_id', $store->id)
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->get();
-
-            $categoryIds = $request->query('category_ids', []);
-
-            if (!is_array($categoryIds)) {
-                $categoryIds = array_filter(explode(',', (string) $categoryIds), 'strlen');
-            }
-
-            $categoryIds = array_map('intval', $categoryIds);
-            $categoryIds = array_filter($categoryIds, fn ($id) => $id > 0);
+            $categories = $this->storefront->activeCategoryReferences((int) $store->id);
+            $categoryIds = $request->categoryIds();
 
             if ($categoryIds) {
-                $categoryIds = $this->resolveCategoryDescendants($categories, $categoryIds);
+                $categoryIds = $this->storefront->resolveCategoryDescendants($categories, $categoryIds);
             }
 
-            $productsQuery = DB::table('products')
-                ->leftJoin('product_images', function ($join) {
-                    $join->on('products.id', '=', 'product_images.product_id')
-                        ->where('product_images.is_primary', true);
-                })
-                ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-                ->select([
-                    'products.id',
-                    'products.name',
-                    'products.slug',
-                    'products.sku',
-                    'products.short_description',
-                    'products.price',
-                    'products.sale_price',
-                    'products.quantity',
-                    'products.weight',
-                    'products.category_id',
-                    'categories.name as category_name',
-                    'product_images.image',
-                ])
-                ->where('products.status', true);
-
-            if ($categoryIds) {
-                $productsQuery->whereIn('products.category_id', $categoryIds);
-            }
-
-            $products = $productsQuery->orderBy('products.name')->get();
+            $products = $this->storefront->activeProducts($store, $categoryIds);
         } catch (QueryException) {
             return response()->json([
                 'success' => true,
@@ -198,31 +130,5 @@ class StorefrontController extends Controller
             ],
             'products' => $products,
         ]);
-    }
-
-    private function resolveCategoryDescendants(Collection $categories, array $selectedIds): array
-    {
-        $allIds = [];
-
-        $childrenByParent = $categories->groupBy('parent_category_id');
-
-        $stack = $selectedIds;
-
-        while (!empty($stack)) {
-            $id = array_pop($stack);
-
-            if (in_array($id, $allIds, true)) {
-                continue;
-            }
-
-            $allIds[] = $id;
-
-            $children = $childrenByParent[$id] ?? collect();
-            foreach ($children as $child) {
-                $stack[] = $child->id;
-            }
-        }
-
-        return $allIds;
     }
 }
