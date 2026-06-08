@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\AdminAnalyticsController;
+use App\Http\Controllers\Api\V1\AdminSettingsController;
+use App\Http\Controllers\Api\V1\AdminCustomerController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
 use App\Http\Controllers\Api\V1\ShippingController;
@@ -34,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('/categories', CategoryController::class);
     Route::apiResource('/products', \App\Http\Controllers\Api\V1\ProductController::class);
+    Route::patch('/admin/products/{id}/stock', [\App\Http\Controllers\Api\V1\ProductController::class, 'adjustStock']);
     Route::get('/products/images/defaults', [\App\Http\Controllers\Api\V1\ProductImageController::class, 'defaults']);
     Route::apiResource('/products.images', \App\Http\Controllers\Api\V1\ProductImageController::class)->except(['show']);
     Route::apiResource('/products.variants', \App\Http\Controllers\Api\V1\ProductVariantController::class);
@@ -55,6 +59,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Coupons (admin CRUD)
     Route::apiResource('/coupons', CouponController::class);
 
+    // Admin analytics
+    Route::get('/admin/analytics/summary', [AdminAnalyticsController::class, 'summary']);
+
+    // Admin settings
+    Route::get('/admin/settings', [AdminSettingsController::class, 'show']);
+    Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
+
     // Admin order management
     Route::prefix('admin/orders')->group(function () {
         Route::get('/', [AdminOrderController::class, 'index']);
@@ -63,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{id}/payment-status', [AdminOrderController::class, 'updatePaymentStatus']);
         Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
         Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
+        Route::patch('/{id}/return-status', [AdminOrderController::class, 'updateReturnStatus']);
     });
 
     // Admin shipping management
@@ -91,6 +103,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/methods/{methodId}/rates', [AdminShippingController::class, 'storeRate']);
         Route::put('/rates/{id}', [AdminShippingController::class, 'updateRate']);
         Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
+    });
+
+    // Admin customer management
+    Route::prefix('admin/customers')->group(function () {
+        Route::get('/', [AdminCustomerController::class, 'index']);
+        Route::get('/{id}', [AdminCustomerController::class, 'show']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

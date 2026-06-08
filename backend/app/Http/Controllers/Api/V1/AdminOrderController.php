@@ -14,7 +14,7 @@ class AdminOrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['status', 'payment_status', 'search', 'date_from', 'date_to']);
+        $filters = $request->only(['status', 'payment_status', 'search', 'date_from', 'date_to', 'has_return', 'return_status']);
         $perPage = (int) $request->input('per_page', 20);
         $paginator = $this->orders->adminList($filters, $perPage);
 
@@ -109,6 +109,27 @@ class AdminOrderController extends Controller
         ]);
 
         $order = $this->orders->updateAdminNotes($order, $data['admin_notes'] ?? null);
+
+        return response()->json(['order' => $order]);
+    }
+
+    public function updateReturnStatus(Request $request, int $id): JsonResponse
+    {
+        $order = $this->orders->adminFind($id);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $data = $request->validate([
+            'return_status' => ['required', 'in:' . implode(',', Order::RETURN_STATUSES)],
+            'return_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $order = $this->orders->updateReturnStatus(
+            $order,
+            $data['return_status'],
+            $data['return_reason'] ?? null
+        );
 
         return response()->json(['order' => $order]);
     }

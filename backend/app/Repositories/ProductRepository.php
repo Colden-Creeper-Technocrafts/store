@@ -54,6 +54,16 @@ class ProductRepository implements ProductRepositoryInterface
             });
         }
 
+        if (!empty($filters['stock_status'])) {
+            if ($filters['stock_status'] === 'out_of_stock') {
+                $query->where('products.quantity', '<=', 0);
+            } elseif ($filters['stock_status'] === 'low_stock') {
+                $query->where('products.quantity', '>', 0)->where('products.quantity', '<=', 5);
+            } elseif ($filters['stock_status'] === 'in_stock') {
+                $query->where('products.quantity', '>', 5);
+            }
+        }
+
         return $query->orderBy('products.name')->paginate($perPage);
     }
 
@@ -118,6 +128,20 @@ class ProductRepository implements ProductRepositoryInterface
     public function delete(Product $product): bool
     {
         return $product->delete();
+    }
+
+    public function adjustStock(Product $product, int $quantity): Product
+    {
+        return DB::transaction(function () use ($product, $quantity) {
+            $product->update(['quantity' => $quantity]);
+
+            $defaultVariant = $product->defaultVariant()->first();
+            if ($defaultVariant) {
+                $defaultVariant->update(['quantity' => $quantity]);
+            }
+
+            return $product->fresh(['defaultVariant']);
+        });
     }
 
     private function defaultVariantPayload(array $payload, bool $status): array

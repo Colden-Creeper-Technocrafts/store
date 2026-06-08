@@ -252,6 +252,14 @@ class OrderRepository implements OrderRepositoryInterface
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
+        if (!empty($filters['has_return'])) {
+            $query->whereNotNull('return_status');
+        }
+
+        if (!empty($filters['return_status'])) {
+            $query->where('return_status', $filters['return_status']);
+        }
+
         return $query->paginate($perPage);
     }
 
@@ -295,5 +303,21 @@ class OrderRepository implements OrderRepositoryInterface
     {
         $order->update(['admin_notes' => $notes]);
         return $order->fresh();
+    }
+
+    public function updateReturnStatus(Order $order, string $returnStatus, ?string $reason = null): Order
+    {
+        $data = ['return_status' => $returnStatus];
+
+        if ($reason !== null) {
+            $data['return_reason'] = $reason;
+        }
+
+        if ($returnStatus === 'refunded') {
+            $data['payment_status'] = 'refunded';
+        }
+
+        $order->update($data);
+        return $order->fresh(['items', 'user']);
     }
 }

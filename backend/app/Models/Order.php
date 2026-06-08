@@ -35,6 +35,8 @@ class Order extends Model
         'admin_notes',
         'tracking_number',
         'tracking_url',
+        'return_status',
+        'return_reason',
     ];
 
     protected $casts = [
@@ -46,6 +48,7 @@ class Order extends Model
 
     public const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     public const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
+    public const RETURN_STATUSES = ['requested', 'approved', 'rejected', 'refunded'];
 
     public function user(): BelongsTo
     {

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Interfaces\AuthRepositoryInterface;
+use App\Interfaces\CustomerRepositoryInterface;
 use App\Interfaces\CartRepositoryInterface;
 use App\Interfaces\CategoryRepositoryInterface;
 use App\Interfaces\CouponRepositoryInterface;
@@ -12,6 +13,7 @@ use App\Interfaces\ProductRepositoryInterface;
 use App\Interfaces\ProductVariantRepositoryInterface;
 use App\Interfaces\StorefrontRepositoryInterface;
 use App\Repositories\AuthRepository;
+use App\Repositories\CustomerRepository;
 use App\Repositories\CartRepository;
 use App\Repositories\CategoryRepository;
 use App\Repositories\CouponRepository;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(AuthRepositoryInterface::class, AuthRepository::class);
+        $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);
         $this->app->bind(CartRepositoryInterface::class, CartRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
         $this->app->bind(CouponRepositoryInterface::class, CouponRepository::class);

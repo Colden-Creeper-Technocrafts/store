@@ -25,6 +25,8 @@ export type AdminOrder = {
   user: { id: number; name: string; email: string } | null
   status: string
   payment_status: string
+  return_status: string | null
+  return_reason: string | null
   subtotal: number
   discount_amount: number
   total: number
@@ -58,6 +60,8 @@ export type OrderFilters = {
   search?: string
   date_from?: string
   date_to?: string
+  has_return?: boolean
+  return_status?: string
   page?: number
   per_page?: number
 }
@@ -95,5 +99,14 @@ export const updateOrderTracking = async (
 
 export const updateOrderNotes = async (id: number, admin_notes: string | null): Promise<AdminOrder> => {
   const response = await api.patch(`/admin/orders/${id}/notes`, { admin_notes })
+  return response.data.order
+}
+
+export const updateOrderReturnStatus = async (
+  id: number,
+  return_status: string,
+  return_reason?: string | null
+): Promise<AdminOrder> => {
+  const response = await api.patch(`/admin/orders/${id}/return-status`, { return_status, return_reason })
   return response.data.order
 }

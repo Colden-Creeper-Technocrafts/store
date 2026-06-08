@@ -18,4 +18,6 @@ interface ProductRepositoryInterface
     public function update(Product $product, array $payload): Product;
 
     public function delete(Product $product): bool;
+
+    public function adjustStock(Product $product, int $quantity): Product;
 }

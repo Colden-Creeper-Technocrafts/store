@@ -13,6 +13,9 @@ import AdminProductsPage from '../admin/ProductsPage.vue'
 import AdminCouponsPage from '../admin/CouponsPage.vue'
 import AdminOrdersPage from '../admin/OrdersPage.vue'
 import AdminShippingPage from '../admin/ShippingPage.vue'
+import AdminCustomersPage from '../admin/CustomersPage.vue'
+import AdminReturnsPage from '../admin/ReturnsPage.vue'
+import AdminFulfillmentPage from '../admin/FulfillmentPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 
@@ -94,6 +97,21 @@ const routes = [
   {
     path: '/backstore/shipping',
     component: AdminShippingPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/customers',
+    component: AdminCustomersPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/returns',
+    component: AdminReturnsPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/fulfillment',
+    component: AdminFulfillmentPage,
     meta: { requiresAdmin: true }
   }
 ]
