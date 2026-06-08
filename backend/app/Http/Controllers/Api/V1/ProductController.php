@@ -114,6 +114,27 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'product' => $product]);
     }
 
+    public function adjustStock(Request $request, int $id): JsonResponse
+    {
+        $store = $this->products->resolveActiveStore();
+
+        if (!$store) {
+            return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+        }
+
+        $product = $this->products->findForStore((int) $store->id, $id);
+
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Product not found'], 404);
+        }
+
+        $data = $request->validate(['quantity' => ['required', 'integer', 'min:0']]);
+
+        $product = $this->products->adjustStock($product, (int) $data['quantity']);
+
+        return response()->json(['success' => true, 'product' => $product]);
+    }
+
     public function destroy(int $id): JsonResponse
     {
         $store = $this->products->resolveActiveStore();

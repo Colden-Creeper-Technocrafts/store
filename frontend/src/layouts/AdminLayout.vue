@@ -20,17 +20,15 @@ const menuItems = [
     icon: '🛒',
     children: [
       { title: 'All Orders', to: '/backstore/orders' },
-      { title: 'Fulfillment', to: '/orders/fulfillment' },
-      { title: 'Returns', to: '/orders/returns' }
+      { title: 'Fulfillment', to: '/backstore/fulfillment' },
+      { title: 'Returns', to: '/backstore/returns' }
     ]
   },
   {
     title: 'Customers',
     icon: '👥',
     children: [
-      { title: 'Customer list', to: '/customers' },
-      { title: 'Segmentation', to: '/customers/segments' },
-      { title: 'Loyalty', to: '/customers/loyalty' }
+      { title: 'All Customers', to: '/backstore/customers' },
     ]
   },
   {
@@ -65,8 +63,7 @@ const menuItems = [
     title: 'Settings',
     icon: '⚙️',
     children: [
-      { title: 'Store settings', to: '/settings/store' },
-      { title: 'Account', to: '/settings/account' }
+      { title: 'Store settings', to: '/backstore/settings' }
     ]
   }
 ]

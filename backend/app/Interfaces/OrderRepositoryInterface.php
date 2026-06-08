@@ -31,4 +31,6 @@ interface OrderRepositoryInterface
     public function updateTracking(Order $order, ?string $trackingNumber, ?string $trackingUrl): Order;
 
     public function updateAdminNotes(Order $order, ?string $notes): Order;
+
+    public function updateReturnStatus(Order $order, string $returnStatus, ?string $reason = null): Order;
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import type { AdminProduct, AdminProductImage, AdminProductVariant } from '../services/adminProducts'
-import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, loadProductImageDefaults } from '../services/adminProducts'
+import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, loadProductImageDefaults, adjustProductStock } from '../services/adminProducts'
 import { loadAdminCategories } from '../services/adminCategories'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
@@ -20,6 +20,10 @@ const lastPage = ref(1)
 const searchQuery = ref('')
 const filterCategory = ref<number | null>(null)
 const filterStatus = ref<string | null>(null)
+const filterStockStatus = ref<string | null>(null)
+const adjustingProductId = ref<number | null>(null)
+const adjustQty = ref(0)
+const isAdjusting = ref(false)
 const formRef = ref<HTMLElement | null>(null)
 const variants = ref<AdminProductVariant[]>([])
 const variantLoading = ref(false)
@@ -62,6 +66,7 @@ const loadProducts = async () => {
       search: searchQuery.value || undefined,
       category_id: filterCategory.value || undefined,
       status: filterStatus.value !== null ? filterStatus.value : undefined,
+      stock_status: filterStockStatus.value || undefined,
     })
 
     products.value = items
@@ -424,6 +429,38 @@ const addNew = () => {
   }, 0)
 }
 
+const stockBadge = (qty: number | null | undefined) => {
+  const q = qty ?? 0
+  if (q <= 0)  return { label: 'Out of stock', cls: 'bg-rose-100 text-rose-800' }
+  if (q <= 5)  return { label: 'Low stock',    cls: 'bg-yellow-100 text-yellow-800' }
+  return              { label: 'In stock',      cls: 'bg-emerald-100 text-emerald-800' }
+}
+
+const openAdjust = (p: AdminProduct) => {
+  adjustingProductId.value = p.id
+  adjustQty.value = p.quantity ?? 0
+}
+
+const cancelAdjust = () => {
+  adjustingProductId.value = null
+}
+
+const saveAdjust = async (p: AdminProduct) => {
+  isAdjusting.value = true
+  errorMessage.value = ''
+  try {
+    const updated = await adjustProductStock(p.id, adjustQty.value)
+    const idx = products.value.findIndex((x) => x.id === p.id)
+    if (idx !== -1) products.value[idx] = { ...products.value[idx], quantity: updated.quantity }
+    adjustingProductId.value = null
+    successMessage.value = 'Stock updated.'
+  } catch {
+    errorMessage.value = 'Failed to update stock.'
+  } finally {
+    isAdjusting.value = false
+  }
+}
+
 const doSearch = () => {
   page.value = 1
   loadProducts()
@@ -466,9 +503,15 @@ onMounted(() => {
               <SearchableSelect v-model="filterCategory" :options="categories" placeholder="All categories" @update:modelValue="doSearch" />
             </div>
             <select v-model="filterStatus" @change="doSearch" class="rounded-3xl border bg-white px-4 py-2">
-              <option :value="null">All</option>
+              <option :value="null">All statuses</option>
               <option value="1">Active</option>
               <option value="0">Inactive</option>
+            </select>
+            <select v-model="filterStockStatus" @change="doSearch" class="rounded-3xl border bg-white px-4 py-2">
+              <option :value="null">All stock</option>
+              <option value="in_stock">In stock</option>
+              <option value="low_stock">Low stock (≤5)</option>
+              <option value="out_of_stock">Out of stock</option>
             </select>
           </div>
           <div class="flex items-center gap-3">
@@ -492,29 +535,62 @@ onMounted(() => {
                   <th class="py-2">Name</th>
                   <th class="py-2">SKU</th>
                   <th class="py-2">Price</th>
-                  <th class="py-2">Qty</th>
+                  <th class="py-2">Stock</th>
                   <th class="py-2">Status</th>
                   <th class="py-2">Category</th>
                   <th class="py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="p in products" :key="p.id" class="border-b hover:bg-slate-50">
-                  <td class="py-3">{{ p.name }}</td>
-                  <td class="py-3">{{ p.sku ?? '—' }}</td>
-                  <td class="py-3">{{ p.price ? '$' + p.price : '—' }}</td>
-                  <td class="py-3">{{ p.quantity ?? 0 }}</td>
-                  <td class="py-3">
-                    <span :class="['inline-flex rounded-full px-2 py-1 text-xs font-semibold', p.status ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800']">
-                      {{ p.status ? 'Active' : 'Inactive' }}
-                    </span>
-                  </td>
-                  <td class="py-3">{{ p.category_name ?? '—' }}</td>
-                  <td class="py-3">
-                    <button class="rounded-full border px-3 py-1 mr-2" @click="editProduct(p)">Edit</button>
-                    <button class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700" @click="removeProduct(p)">Delete</button>
-                  </td>
-                </tr>
+                <template v-for="p in products" :key="p.id">
+                  <tr class="border-b hover:bg-slate-50">
+                    <td class="py-3">{{ p.name }}</td>
+                    <td class="py-3">{{ p.sku ?? '—' }}</td>
+                    <td class="py-3">{{ p.price ? '₹' + p.price : '—' }}</td>
+                    <td class="py-3">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium text-slate-800">{{ p.quantity ?? 0 }}</span>
+                        <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', stockBadge(p.quantity).cls]">
+                          {{ stockBadge(p.quantity).label }}
+                        </span>
+                        <button
+                          class="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-50"
+                          @click="openAdjust(p)"
+                        >±</button>
+                      </div>
+                    </td>
+                    <td class="py-3">
+                      <span :class="['inline-flex rounded-full px-2 py-1 text-xs font-semibold', p.status ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800']">
+                        {{ p.status ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                    <td class="py-3">{{ p.category_name ?? '—' }}</td>
+                    <td class="py-3">
+                      <button class="rounded-full border px-3 py-1 mr-2" @click="editProduct(p)">Edit</button>
+                      <button class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700" @click="removeProduct(p)">Delete</button>
+                    </td>
+                  </tr>
+                  <!-- Inline stock adjust row -->
+                  <tr v-if="adjustingProductId === p.id" class="bg-yellow-50 border-b">
+                    <td colspan="7" class="px-3 py-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-medium text-slate-700">Adjust stock for <strong>{{ p.name }}</strong>:</span>
+                        <input
+                          v-model.number="adjustQty"
+                          type="number"
+                          min="0"
+                          class="w-24 rounded-xl border border-slate-300 px-3 py-1.5 text-sm focus:outline-none"
+                        />
+                        <button
+                          :disabled="isAdjusting"
+                          @click="saveAdjust(p)"
+                          class="rounded-xl bg-slate-900 px-4 py-1.5 text-sm text-white disabled:opacity-50"
+                        >Save</button>
+                        <button @click="cancelAdjust" class="rounded-xl border px-4 py-1.5 text-sm text-slate-600">Cancel</button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>

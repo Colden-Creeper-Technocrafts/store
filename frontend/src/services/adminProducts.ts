@@ -120,6 +120,11 @@ export const deleteAdminProductImage = async (productId: number, imageId: number
   await api.delete(`/products/${productId}/images/${imageId}`)
 }
 
+export const adjustProductStock = async (id: number, quantity: number): Promise<AdminProduct> => {
+  const response = await api.patch(`/admin/products/${id}/stock`, { quantity })
+  return response.data.product
+}
+
 export const loadProductImageDefaults = async (): Promise<{ default_image: string }> => {
   const response = await api.get('/products/images/defaults')
   return {
