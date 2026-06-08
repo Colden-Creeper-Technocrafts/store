@@ -26,6 +26,8 @@ class GuestCheckoutRequest extends FormRequest
             'shipping_country'     => ['required', 'string', 'max:100'],
             'notes'                => ['nullable', 'string', 'max:1000'],
             'coupon_code'          => ['nullable', 'string', 'max:64'],
+            'shipping_state'       => ['nullable', 'string', 'max:100'],
+            'shipping_method_id'   => ['nullable', 'integer', 'exists:shipping_methods,id'],
         ];
     }
 }

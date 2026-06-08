@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AdminOrderController;
+use App\Http\Controllers\Api\V1\AdminShippingController;
+use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -17,6 +19,7 @@ Route::get('/storefront', [StorefrontController::class, 'show']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
+Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -54,6 +57,34 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{id}/payment-status', [AdminOrderController::class, 'updatePaymentStatus']);
         Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
         Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
+    });
+
+    // Admin shipping management
+    Route::prefix('admin/shipping')->group(function () {
+        // Providers
+        Route::get('/providers', [AdminShippingController::class, 'providers']);
+        Route::put('/providers/{id}', [AdminShippingController::class, 'updateProvider']);
+        Route::post('/providers/{id}/validate', [AdminShippingController::class, 'validateProvider']);
+
+        // Zones
+        Route::get('/zones', [AdminShippingController::class, 'zones']);
+        Route::post('/zones', [AdminShippingController::class, 'storeZone']);
+        Route::put('/zones/{id}', [AdminShippingController::class, 'updateZone']);
+        Route::delete('/zones/{id}', [AdminShippingController::class, 'destroyZone']);
+        Route::post('/zones/{zoneId}/locations', [AdminShippingController::class, 'storeZoneLocation']);
+        Route::delete('/zones/{zoneId}/locations/{locationId}', [AdminShippingController::class, 'destroyZoneLocation']);
+
+        // Methods
+        Route::get('/methods', [AdminShippingController::class, 'methods']);
+        Route::post('/methods', [AdminShippingController::class, 'storeMethod']);
+        Route::put('/methods/{id}', [AdminShippingController::class, 'updateMethod']);
+        Route::delete('/methods/{id}', [AdminShippingController::class, 'destroyMethod']);
+
+        // Rates
+        Route::get('/methods/{methodId}/rates', [AdminShippingController::class, 'rates']);
+        Route::post('/methods/{methodId}/rates', [AdminShippingController::class, 'storeRate']);
+        Route::put('/rates/{id}', [AdminShippingController::class, 'updateRate']);
+        Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);

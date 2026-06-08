@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -15,6 +16,8 @@ class Order extends Model
         'subtotal',
         'discount_amount',
         'total',
+        'shipping_cost',
+        'shipping_method_id',
         'coupon_id',
         'coupon_code',
         'shipping_name',
@@ -34,6 +37,7 @@ class Order extends Model
         'subtotal'        => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'total'           => 'decimal:2',
+        'shipping_cost'   => 'decimal:2',
     ];
 
     public const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -57,5 +61,15 @@ class Order extends Model
     public function statusHistory(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class)->orderBy('created_at');
+    }
+
+    public function shippingMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShippingMethod::class)->withDefault();
+    }
+
+    public function shipment(): HasOne
+    {
+        return $this->hasOne(Shipment::class);
     }
 }

@@ -12,6 +12,7 @@ import AdminCategoriesPage from '../admin/CategoriesPage.vue'
 import AdminProductsPage from '../admin/ProductsPage.vue'
 import AdminCouponsPage from '../admin/CouponsPage.vue'
 import AdminOrdersPage from '../admin/OrdersPage.vue'
+import AdminShippingPage from '../admin/ShippingPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 
@@ -88,6 +89,11 @@ const routes = [
   {
     path: '/backstore/orders',
     component: AdminOrdersPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/shipping',
+    component: AdminShippingPage,
     meta: { requiresAdmin: true }
   }
 ]

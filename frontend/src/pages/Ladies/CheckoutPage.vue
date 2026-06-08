@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
-import { placeOrder, placeGuestOrder } from '../../services/orders'
+import { placeOrder, placeGuestOrder, calculateShipping } from '../../services/orders'
+import type { ShippingRate } from '../../services/orders'
 import { validateCoupon } from '../../services/coupon'
 import type { CouponValidation } from '../../services/coupon'
 
@@ -19,12 +20,17 @@ const couponValidating = ref(false)
 const couponError = ref('')
 const appliedCoupon = ref<CouponValidation | null>(null)
 
+const shippingRates = ref<ShippingRate[]>([])
+const loadingRates = ref(false)
+const selectedRate = ref<ShippingRate | null>(null)
+
 const form = reactive({
   shipping_name: authStore.user?.name ?? '',
   shipping_email: authStore.user?.email ?? '',
   shipping_phone: '',
   shipping_address: '',
   shipping_city: '',
+  shipping_state: '',
   shipping_postal_code: '',
   shipping_country: 'India',
   notes: '',
@@ -33,6 +39,41 @@ const form = reactive({
 onMounted(async () => {
   if (!cartStore.loaded) await cartStore.load()
   if (cartStore.isEmpty) router.push('/cart')
+})
+
+let rateTimer: ReturnType<typeof setTimeout> | null = null
+
+const fetchRates = async () => {
+  const pincode = form.shipping_postal_code.trim()
+  if (pincode.length < 5) {
+    shippingRates.value = []
+    selectedRate.value = null
+    return
+  }
+  loadingRates.value = true
+  try {
+    const rates = await calculateShipping({
+      pincode,
+      state: form.shipping_state.trim() || undefined,
+      order_amount: cartStore.total,
+    })
+    shippingRates.value = rates
+    if (rates.length > 0 && (!selectedRate.value || !rates.find(r => r.method_id === selectedRate.value!.method_id))) {
+      selectedRate.value = rates[0]
+    } else if (rates.length === 0) {
+      selectedRate.value = null
+    }
+  } catch {
+    shippingRates.value = []
+    selectedRate.value = null
+  } finally {
+    loadingRates.value = false
+  }
+}
+
+watch([() => form.shipping_postal_code, () => form.shipping_state], () => {
+  if (rateTimer) clearTimeout(rateTimer)
+  rateTimer = setTimeout(fetchRates, 600)
 })
 
 const applyCoupon = async () => {
@@ -59,9 +100,11 @@ const removeCoupon = () => {
   couponError.value = ''
 }
 
+const shippingCost = () => selectedRate.value?.cost ?? 0
+
 const finalTotal = () => {
-  if (!appliedCoupon.value) return cartStore.total
-  return Math.max(0, cartStore.total - appliedCoupon.value.discount_amount)
+  const base = cartStore.total - (appliedCoupon.value?.discount_amount ?? 0)
+  return Math.max(0, base) + shippingCost()
 }
 
 const submit = async () => {
@@ -74,10 +117,12 @@ const submit = async () => {
       shipping_phone: form.shipping_phone || null,
       shipping_address: form.shipping_address,
       shipping_city: form.shipping_city,
+      shipping_state: form.shipping_state || null,
       shipping_postal_code: form.shipping_postal_code,
       shipping_country: form.shipping_country,
       notes: form.notes || null,
       coupon_code: appliedCoupon.value?.code ?? null,
+      shipping_method_id: selectedRate.value?.method_id ?? null,
     }
 
     if (authStore.isCustomer) {
@@ -143,12 +188,20 @@ const submit = async () => {
               class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500" />
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-3">
+          <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="block text-sm font-medium text-stone-700">City</label>
               <input v-model="form.shipping_city" required type="text"
                 class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500" />
             </div>
+            <div>
+              <label class="block text-sm font-medium text-stone-700">State</label>
+              <input v-model="form.shipping_state" type="text" placeholder="e.g. Maharashtra"
+                class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500" />
+            </div>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="block text-sm font-medium text-stone-700">Postal Code</label>
               <input v-model="form.shipping_postal_code" required type="text"
@@ -159,6 +212,41 @@ const submit = async () => {
               <input v-model="form.shipping_country" required type="text"
                 class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500" />
             </div>
+          </div>
+
+          <!-- Shipping Method -->
+          <div>
+            <p class="text-sm font-medium text-stone-700 mb-2">Shipping Method</p>
+            <div v-if="loadingRates" class="text-sm text-stone-400">Loading shipping options…</div>
+            <div v-else-if="shippingRates.length > 0" class="space-y-2">
+              <label
+                v-for="rate in shippingRates"
+                :key="rate.method_id"
+                class="flex items-center gap-3 border p-3 cursor-pointer transition"
+                :class="selectedRate?.method_id === rate.method_id
+                  ? 'border-stone-900 bg-stone-50'
+                  : 'border-stone-200 hover:border-stone-400'"
+              >
+                <input
+                  type="radio"
+                  :value="rate.method_id"
+                  :checked="selectedRate?.method_id === rate.method_id"
+                  @change="selectedRate = rate"
+                  class="accent-stone-900"
+                />
+                <span class="flex-1 text-sm text-stone-800">
+                  {{ rate.method_name }}
+                  <span v-if="rate.delivery_estimate" class="text-stone-400 ml-1">({{ rate.delivery_estimate }})</span>
+                </span>
+                <span class="text-sm font-semibold text-stone-900">
+                  {{ rate.is_free ? 'FREE' : `₹${rate.cost.toFixed(2)}` }}
+                </span>
+              </label>
+            </div>
+            <p v-else-if="form.shipping_postal_code.length >= 5" class="text-sm text-stone-400">
+              No shipping options available for this pincode.
+            </p>
+            <p v-else class="text-sm text-stone-400">Enter postal code to see shipping options.</p>
           </div>
 
           <div>
@@ -210,20 +298,27 @@ const submit = async () => {
           <p class="font-semibold text-stone-900">Order Summary</p>
           <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-stone-600">
             <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
-            <span class="flex-shrink-0">${{ item.line_total.toFixed(2) }}</span>
+            <span class="flex-shrink-0">₹{{ item.line_total.toFixed(2) }}</span>
           </div>
           <div class="border-t border-stone-100 pt-3 space-y-2">
             <div class="flex justify-between text-sm text-stone-600">
               <span>Subtotal</span>
-              <span>${{ cartStore.total.toFixed(2) }}</span>
+              <span>₹{{ cartStore.total.toFixed(2) }}</span>
             </div>
             <div v-if="appliedCoupon" class="flex justify-between text-sm text-stone-600">
               <span>Discount ({{ appliedCoupon.code }})</span>
-              <span class="text-stone-800">−${{ appliedCoupon.discount_amount.toFixed(2) }}</span>
+              <span class="text-stone-800">−₹{{ appliedCoupon.discount_amount.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between text-sm text-stone-600">
+              <span>Shipping</span>
+              <span v-if="selectedRate">
+                {{ selectedRate.is_free ? 'FREE' : `₹${selectedRate.cost.toFixed(2)}` }}
+              </span>
+              <span v-else class="text-stone-400">—</span>
             </div>
             <div class="flex justify-between pt-1 font-semibold text-stone-900">
               <span>Total</span>
-              <span>${{ finalTotal().toFixed(2) }}</span>
+              <span>₹{{ finalTotal().toFixed(2) }}</span>
             </div>
           </div>
         </div>

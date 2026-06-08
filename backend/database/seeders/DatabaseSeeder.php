@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             BrandsSeeder::class,
             ProductSeeder::class,
+            ShippingSeeder::class,
         ]);
 
         // User::factory(10)->create();

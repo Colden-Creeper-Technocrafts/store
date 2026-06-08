@@ -22,6 +22,9 @@ class Product extends Model
         'sale_price',
         'quantity',
         'weight',
+        'length_cm',
+        'width_cm',
+        'height_cm',
         'status',
         'featured',
         'brand_id',
@@ -29,10 +32,14 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
+        'price'      => 'decimal:2',
         'sale_price' => 'decimal:2',
-        'status' => 'boolean',
-        'featured' => 'boolean',
+        'weight'     => 'decimal:3',
+        'length_cm'  => 'decimal:2',
+        'width_cm'   => 'decimal:2',
+        'height_cm'  => 'decimal:2',
+        'status'     => 'boolean',
+        'featured'   => 'boolean',
     ];
 
     public function variants(): HasMany

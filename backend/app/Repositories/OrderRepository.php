@@ -10,6 +10,8 @@ use App\Models\CouponUsage;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
+use App\Shipping\DTOs\RateRequest;
+use App\Shipping\ShippingRuleEngine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 class OrderRepository implements OrderRepositoryInterface
 {
-    public function __construct(private readonly CouponRepositoryInterface $coupons) {}
+    public function __construct(
+        private readonly CouponRepositoryInterface $coupons,
+        private readonly ShippingRuleEngine $engine,
+    ) {}
 
     public function createFromCart(int $userId, Cart $cart, array $shippingData, ?Coupon $coupon = null): Order
     {
@@ -34,10 +39,12 @@ class OrderRepository implements OrderRepositoryInterface
                 $this->assertStock($lockedProducts->get($item->product_id), $item->quantity);
             }
 
-            $subtotal = 0;
+            $subtotal        = 0;
+            $totalWeightKg   = 0.0;
             foreach ($cart->items as $item) {
-                $p         = $lockedProducts->get($item->product_id);
-                $subtotal += (float) ($p->sale_price ?? $p->price) * $item->quantity;
+                $p              = $lockedProducts->get($item->product_id);
+                $subtotal      += (float) ($p->sale_price ?? $p->price) * $item->quantity;
+                $totalWeightKg += (float) ($p->weight ?? 0) * $item->quantity;
             }
 
             $discount = 0;
@@ -46,14 +53,18 @@ class OrderRepository implements OrderRepositoryInterface
                 $discount = $this->coupons->calculateDiscount($coupon, $subtotal);
             }
 
+            $shipping = $this->resolveShippingCost($shippingData, $subtotal, $totalWeightKg);
+
             $order = Order::create(array_merge($shippingData, [
-                'user_id'         => $userId,
-                'status'          => 'pending',
-                'subtotal'        => round($subtotal, 2),
-                'discount_amount' => round($discount, 2),
-                'total'           => round($subtotal - $discount, 2),
-                'coupon_id'       => $coupon?->id,
-                'coupon_code'     => $coupon?->code,
+                'user_id'            => $userId,
+                'status'             => 'pending',
+                'subtotal'           => round($subtotal, 2),
+                'discount_amount'    => round($discount, 2),
+                'shipping_cost'      => $shipping['shipping_cost'],
+                'shipping_method_id' => $shipping['shipping_method_id'],
+                'total'              => round($subtotal - $discount + $shipping['shipping_cost'], 2),
+                'coupon_id'          => $coupon?->id,
+                'coupon_code'        => $coupon?->code,
             ]));
 
             foreach ($cart->items as $item) {
@@ -67,6 +78,7 @@ class OrderRepository implements OrderRepositoryInterface
                     'price'      => $price,
                     'quantity'   => $item->quantity,
                     'subtotal'   => round($price * $item->quantity, 2),
+                    'weight_kg'  => ($product->weight > 0) ? (float) $product->weight : null,
                 ]);
 
                 $product->decrement('quantity', $item->quantity);
@@ -96,10 +108,12 @@ class OrderRepository implements OrderRepositoryInterface
                 $this->assertStock($lockedProducts->get($item['product_id']), $item['quantity']);
             }
 
-            $subtotal = 0;
+            $subtotal        = 0;
+            $totalWeightKg   = 0.0;
             foreach ($items as $item) {
-                $p         = $lockedProducts->get($item['product_id']);
-                $subtotal += (float) ($p->sale_price ?? $p->price) * $item['quantity'];
+                $p              = $lockedProducts->get($item['product_id']);
+                $subtotal      += (float) ($p->sale_price ?? $p->price) * $item['quantity'];
+                $totalWeightKg += (float) ($p->weight ?? 0) * $item['quantity'];
             }
 
             $discount = 0;
@@ -108,14 +122,18 @@ class OrderRepository implements OrderRepositoryInterface
                 $discount = $this->coupons->calculateDiscount($coupon, $subtotal);
             }
 
+            $shipping = $this->resolveShippingCost($shippingData, $subtotal, $totalWeightKg);
+
             $order = Order::create(array_merge($shippingData, [
-                'user_id'         => null,
-                'status'          => 'pending',
-                'subtotal'        => round($subtotal, 2),
-                'discount_amount' => round($discount, 2),
-                'total'           => round($subtotal - $discount, 2),
-                'coupon_id'       => $coupon?->id,
-                'coupon_code'     => $coupon?->code,
+                'user_id'            => null,
+                'status'             => 'pending',
+                'subtotal'           => round($subtotal, 2),
+                'discount_amount'    => round($discount, 2),
+                'shipping_cost'      => $shipping['shipping_cost'],
+                'shipping_method_id' => $shipping['shipping_method_id'],
+                'total'              => round($subtotal - $discount + $shipping['shipping_cost'], 2),
+                'coupon_id'          => $coupon?->id,
+                'coupon_code'        => $coupon?->code,
             ]));
 
             foreach ($items as $item) {
@@ -129,6 +147,7 @@ class OrderRepository implements OrderRepositoryInterface
                     'price'      => $price,
                     'quantity'   => $item['quantity'],
                     'subtotal'   => round($price * $item['quantity'], 2),
+                    'weight_kg'  => ($product->weight > 0) ? (float) $product->weight : null,
                 ]);
 
                 $product->decrement('quantity', $item['quantity']);
@@ -141,6 +160,31 @@ class OrderRepository implements OrderRepositoryInterface
 
             return $order->load('items');
         });
+    }
+
+    private function resolveShippingCost(array $shippingData, float $subtotal, float $totalWeightKg): array
+    {
+        $methodId = isset($shippingData['shipping_method_id'])
+            ? (int) $shippingData['shipping_method_id']
+            : null;
+
+        if (!$methodId) {
+            return ['shipping_method_id' => null, 'shipping_cost' => 0.0];
+        }
+
+        $rateRequest = new RateRequest(
+            weightKg:           max(0.1, $totalWeightKg),
+            orderAmount:        $subtotal,
+            destinationPincode: $shippingData['shipping_postal_code'] ?? '',
+            destinationState:   $shippingData['shipping_state'] ?? '',
+        );
+
+        $rate = $this->engine->rateForMethod($methodId, $rateRequest);
+
+        return [
+            'shipping_method_id' => $methodId,
+            'shipping_cost'      => $rate?->cost ?? 0.0,
+        ];
     }
 
     private function assertStock(?Product $product, int $requested): void
@@ -191,11 +235,12 @@ class OrderRepository implements OrderRepositoryInterface
         }
 
         if (!empty($filters['search'])) {
-            $s = '%' . $filters['search'] . '%';
-            $query->where(function ($q) use ($s) {
+            $s        = '%' . $filters['search'] . '%';
+            $searchId = ltrim($filters['search'], '#');
+            $query->where(function ($q) use ($s, $searchId) {
                 $q->where('shipping_name', 'like', $s)
                   ->orWhere('shipping_email', 'like', $s)
-                  ->orWhere('id', 'like', ltrim($filters['search'], '#'));
+                  ->orWhere('id', 'like', $searchId);
             });
         }
 
