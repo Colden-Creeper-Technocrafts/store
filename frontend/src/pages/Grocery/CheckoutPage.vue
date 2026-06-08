@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 import { placeOrder, placeGuestOrder } from '../../services/orders'
+import { validateCoupon } from '../../services/coupon'
+import type { CouponValidation } from '../../services/coupon'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -11,6 +13,11 @@ const cartStore = useCartStore()
 
 const submitting = ref(false)
 const errorMessage = ref('')
+
+const couponCode = ref('')
+const couponValidating = ref(false)
+const couponError = ref('')
+const appliedCoupon = ref<CouponValidation | null>(null)
 
 const form = reactive({
   shipping_name: authStore.user?.name ?? '',
@@ -28,6 +35,35 @@ onMounted(async () => {
   if (cartStore.isEmpty) router.push('/cart')
 })
 
+const applyCoupon = async () => {
+  const code = couponCode.value.trim()
+  if (!code) return
+  couponValidating.value = true
+  couponError.value = ''
+  appliedCoupon.value = null
+  try {
+    appliedCoupon.value = await validateCoupon(code, cartStore.total)
+  } catch (e: any) {
+    const errors = e?.response?.data?.errors
+    couponError.value = errors
+      ? Object.values(errors).flat().join(' ')
+      : e?.response?.data?.message ?? 'Invalid coupon.'
+  } finally {
+    couponValidating.value = false
+  }
+}
+
+const removeCoupon = () => {
+  appliedCoupon.value = null
+  couponCode.value = ''
+  couponError.value = ''
+}
+
+const finalTotal = () => {
+  if (!appliedCoupon.value) return cartStore.total
+  return Math.max(0, cartStore.total - appliedCoupon.value.discount_amount)
+}
+
 const submit = async () => {
   submitting.value = true
   errorMessage.value = ''
@@ -41,6 +77,7 @@ const submit = async () => {
       shipping_postal_code: form.shipping_postal_code,
       shipping_country: form.shipping_country,
       notes: form.notes || null,
+      coupon_code: appliedCoupon.value?.code ?? null,
     }
 
     if (authStore.isCustomer) {
@@ -140,15 +177,55 @@ const submit = async () => {
         </form>
       </div>
 
-      <div class="border border-emerald-200 bg-white p-6 self-start space-y-4">
-        <p class="font-semibold text-emerald-950">Order Summary</p>
-        <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-emerald-700">
-          <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
-          <span class="flex-shrink-0">${{ item.line_total.toFixed(2) }}</span>
+      <div class="space-y-4 self-start">
+        <!-- Coupon -->
+        <div class="border border-emerald-200 bg-white p-4 space-y-3">
+          <p class="text-sm font-semibold text-emerald-950">Coupon Code</p>
+          <div v-if="appliedCoupon" class="flex items-center justify-between rounded bg-emerald-50 border border-emerald-200 px-3 py-2">
+            <span class="font-mono text-sm font-semibold text-emerald-800">{{ appliedCoupon.code }}</span>
+            <button @click="removeCoupon" class="text-xs text-rose-500 hover:text-rose-700">Remove</button>
+          </div>
+          <div v-else class="flex gap-2">
+            <input
+              v-model="couponCode"
+              type="text"
+              placeholder="Enter code"
+              class="flex-1 border border-emerald-200 px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-emerald-500"
+              @keyup.enter="applyCoupon"
+            />
+            <button
+              type="button"
+              @click="applyCoupon"
+              :disabled="couponValidating || !couponCode.trim()"
+              class="bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-50"
+            >
+              {{ couponValidating ? '…' : 'Apply' }}
+            </button>
+          </div>
+          <p v-if="couponError" class="text-xs text-rose-600">{{ couponError }}</p>
         </div>
-        <div class="flex justify-between border-t border-emerald-100 pt-4 font-semibold text-emerald-950">
-          <span>Total</span>
-          <span>${{ cartStore.total.toFixed(2) }}</span>
+
+        <!-- Order Summary -->
+        <div class="border border-emerald-200 bg-white p-6 space-y-4">
+          <p class="font-semibold text-emerald-950">Order Summary</p>
+          <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-emerald-700">
+            <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
+            <span class="flex-shrink-0">${{ item.line_total.toFixed(2) }}</span>
+          </div>
+          <div class="border-t border-emerald-100 pt-3 space-y-2">
+            <div class="flex justify-between text-sm text-emerald-700">
+              <span>Subtotal</span>
+              <span>${{ cartStore.total.toFixed(2) }}</span>
+            </div>
+            <div v-if="appliedCoupon" class="flex justify-between text-sm text-emerald-600">
+              <span>Discount ({{ appliedCoupon.code }})</span>
+              <span class="text-emerald-700">−${{ appliedCoupon.discount_amount.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between pt-1 font-semibold text-emerald-950">
+              <span>Total</span>
+              <span>${{ finalTotal().toFixed(2) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

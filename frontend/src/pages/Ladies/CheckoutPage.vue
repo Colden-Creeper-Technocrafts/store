@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 import { placeOrder, placeGuestOrder } from '../../services/orders'
+import { validateCoupon } from '../../services/coupon'
+import type { CouponValidation } from '../../services/coupon'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -12,6 +13,11 @@ const cartStore = useCartStore()
 
 const submitting = ref(false)
 const errorMessage = ref('')
+
+const couponCode = ref('')
+const couponValidating = ref(false)
+const couponError = ref('')
+const appliedCoupon = ref<CouponValidation | null>(null)
 
 const form = reactive({
   shipping_name: authStore.user?.name ?? '',
@@ -29,6 +35,35 @@ onMounted(async () => {
   if (cartStore.isEmpty) router.push('/cart')
 })
 
+const applyCoupon = async () => {
+  const code = couponCode.value.trim()
+  if (!code) return
+  couponValidating.value = true
+  couponError.value = ''
+  appliedCoupon.value = null
+  try {
+    appliedCoupon.value = await validateCoupon(code, cartStore.total)
+  } catch (e: any) {
+    const errors = e?.response?.data?.errors
+    couponError.value = errors
+      ? Object.values(errors).flat().join(' ')
+      : e?.response?.data?.message ?? 'Invalid coupon.'
+  } finally {
+    couponValidating.value = false
+  }
+}
+
+const removeCoupon = () => {
+  appliedCoupon.value = null
+  couponCode.value = ''
+  couponError.value = ''
+}
+
+const finalTotal = () => {
+  if (!appliedCoupon.value) return cartStore.total
+  return Math.max(0, cartStore.total - appliedCoupon.value.discount_amount)
+}
+
 const submit = async () => {
   submitting.value = true
   errorMessage.value = ''
@@ -42,19 +77,17 @@ const submit = async () => {
       shipping_postal_code: form.shipping_postal_code,
       shipping_country: form.shipping_country,
       notes: form.notes || null,
+      coupon_code: appliedCoupon.value?.code ?? null,
     }
 
-    let orderId: number
     if (authStore.isCustomer) {
       const order = await placeOrder(shipping)
-      orderId = order.id
       await cartStore.load()
-      router.push({ path: '/orders', query: { placed: String(orderId) } })
+      router.push({ path: '/orders', query: { placed: String(order.id) } })
     } else {
       const order = await placeGuestOrder({ ...shipping, items: cartStore.guestOrderItems })
-      orderId = order.id
       await cartStore.clear()
-      router.push({ path: '/orders', query: { placed: String(orderId), guest: '1' } })
+      router.push({ path: '/orders', query: { placed: String(order.id), guest: '1' } })
     }
   } catch (e: any) {
     const errors = e?.response?.data?.errors
@@ -144,15 +177,55 @@ const submit = async () => {
         </form>
       </div>
 
-      <div class="border border-stone-200 bg-white p-6 self-start space-y-4">
-        <p class="font-semibold text-stone-900">Order Summary</p>
-        <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-stone-600">
-          <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
-          <span class="flex-shrink-0">${{ item.line_total.toFixed(2) }}</span>
+      <div class="space-y-4 self-start">
+        <!-- Coupon -->
+        <div class="border border-stone-200 bg-white p-4 space-y-3">
+          <p class="text-sm font-semibold text-stone-900">Coupon Code</p>
+          <div v-if="appliedCoupon" class="flex items-center justify-between rounded bg-stone-50 border border-stone-200 px-3 py-2">
+            <span class="font-mono text-sm font-semibold text-stone-800">{{ appliedCoupon.code }}</span>
+            <button @click="removeCoupon" class="text-xs text-rose-500 hover:text-rose-700">Remove</button>
+          </div>
+          <div v-else class="flex gap-2">
+            <input
+              v-model="couponCode"
+              type="text"
+              placeholder="Enter code"
+              class="flex-1 border border-stone-300 px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-stone-500"
+              @keyup.enter="applyCoupon"
+            />
+            <button
+              type="button"
+              @click="applyCoupon"
+              :disabled="couponValidating || !couponCode.trim()"
+              class="bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 transition disabled:opacity-50"
+            >
+              {{ couponValidating ? '…' : 'Apply' }}
+            </button>
+          </div>
+          <p v-if="couponError" class="text-xs text-rose-600">{{ couponError }}</p>
         </div>
-        <div class="flex justify-between border-t border-stone-100 pt-4 font-semibold text-stone-900">
-          <span>Total</span>
-          <span>${{ cartStore.total.toFixed(2) }}</span>
+
+        <!-- Order Summary -->
+        <div class="border border-stone-200 bg-white p-6 space-y-4">
+          <p class="font-semibold text-stone-900">Order Summary</p>
+          <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-stone-600">
+            <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
+            <span class="flex-shrink-0">${{ item.line_total.toFixed(2) }}</span>
+          </div>
+          <div class="border-t border-stone-100 pt-3 space-y-2">
+            <div class="flex justify-between text-sm text-stone-600">
+              <span>Subtotal</span>
+              <span>${{ cartStore.total.toFixed(2) }}</span>
+            </div>
+            <div v-if="appliedCoupon" class="flex justify-between text-sm text-stone-600">
+              <span>Discount ({{ appliedCoupon.code }})</span>
+              <span class="text-stone-800">−${{ appliedCoupon.discount_amount.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between pt-1 font-semibold text-stone-900">
+              <span>Total</span>
+              <span>${{ finalTotal().toFixed(2) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

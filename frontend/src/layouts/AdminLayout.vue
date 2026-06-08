@@ -48,6 +48,7 @@ const menuItems = [
     title: 'Marketing',
     icon: '🚀',
     children: [
+      { title: 'Coupons', to: '/backstore/coupons' },
       { title: 'Campaigns', to: '/marketing/campaigns' },
       { title: 'Discounts', to: '/marketing/discounts' }
     ]

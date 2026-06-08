@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\StorefrontController;
 
@@ -15,6 +16,7 @@ Route::get('/storefront', [StorefrontController::class, 'show']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
+Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -39,6 +41,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Orders
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+
+    // Coupons (admin CRUD)
+    Route::apiResource('/coupons', CouponController::class);
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
