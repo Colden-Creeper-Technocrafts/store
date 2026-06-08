@@ -5,6 +5,12 @@ import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 import { placeOrder, placeGuestOrder, calculateShipping } from '../../services/orders'
 import type { ShippingRate } from '../../services/orders'
+import {
+  createRazorpayOrder,
+  openRazorpayModal,
+  verifyRazorpayPayment,
+  PaymentCancelledError,
+} from '../../services/payment'
 import { validateCoupon } from '../../services/coupon'
 import type { CouponValidation } from '../../services/coupon'
 
@@ -13,6 +19,7 @@ const authStore = useAuthStore()
 const cartStore = useCartStore()
 
 const submitting = ref(false)
+const paymentStep = ref<'idle' | 'creating' | 'paying' | 'verifying'>('idle')
 const errorMessage = ref('')
 
 const couponCode = ref('')
@@ -45,30 +52,15 @@ let rateTimer: ReturnType<typeof setTimeout> | null = null
 
 const fetchRates = async () => {
   const pincode = form.shipping_postal_code.trim()
-  if (pincode.length < 5) {
-    shippingRates.value = []
-    selectedRate.value = null
-    return
-  }
+  if (pincode.length < 5) { shippingRates.value = []; selectedRate.value = null; return }
   loadingRates.value = true
   try {
-    const rates = await calculateShipping({
-      pincode,
-      state: form.shipping_state.trim() || undefined,
-      order_amount: cartStore.total,
-    })
+    const rates = await calculateShipping({ pincode, state: form.shipping_state.trim() || undefined, order_amount: cartStore.total })
     shippingRates.value = rates
-    if (rates.length > 0 && (!selectedRate.value || !rates.find(r => r.method_id === selectedRate.value!.method_id))) {
-      selectedRate.value = rates[0]
-    } else if (rates.length === 0) {
-      selectedRate.value = null
-    }
-  } catch {
-    shippingRates.value = []
-    selectedRate.value = null
-  } finally {
-    loadingRates.value = false
-  }
+    const currentId = selectedRate.value?.method_id
+    selectedRate.value = rates.find(r => r.method_id === currentId) ?? rates.find(() => true) ?? null
+  } catch { shippingRates.value = []; selectedRate.value = null }
+  finally { loadingRates.value = false }
 }
 
 watch([() => form.shipping_postal_code, () => form.shipping_state], () => {
@@ -79,39 +71,32 @@ watch([() => form.shipping_postal_code, () => form.shipping_state], () => {
 const applyCoupon = async () => {
   const code = couponCode.value.trim()
   if (!code) return
-  couponValidating.value = true
-  couponError.value = ''
-  appliedCoupon.value = null
+  couponValidating.value = true; couponError.value = ''; appliedCoupon.value = null
   try {
     appliedCoupon.value = await validateCoupon(code, cartStore.total)
   } catch (e: any) {
     const errors = e?.response?.data?.errors
-    couponError.value = errors
-      ? Object.values(errors).flat().join(' ')
-      : e?.response?.data?.message ?? 'Invalid coupon.'
-  } finally {
-    couponValidating.value = false
-  }
+    couponError.value = errors ? Object.values(errors).flat().join(' ') : e?.response?.data?.message ?? 'Invalid coupon.'
+  } finally { couponValidating.value = false }
 }
 
-const removeCoupon = () => {
-  appliedCoupon.value = null
-  couponCode.value = ''
-  couponError.value = ''
-}
+const removeCoupon = () => { appliedCoupon.value = null; couponCode.value = ''; couponError.value = '' }
 
 const shippingCost = () => selectedRate.value?.cost ?? 0
+const finalTotal = () => Math.max(0, cartStore.total - (appliedCoupon.value?.discount_amount ?? 0)) + shippingCost()
 
-const finalTotal = () => {
-  const base = cartStore.total - (appliedCoupon.value?.discount_amount ?? 0)
-  return Math.max(0, base) + shippingCost()
+const stepLabel = () => {
+  if (paymentStep.value === 'creating') return 'Creating order…'
+  if (paymentStep.value === 'paying') return 'Waiting for payment…'
+  if (paymentStep.value === 'verifying') return 'Verifying payment…'
+  return 'Pay with Razorpay'
 }
 
 const submit = async () => {
   submitting.value = true
   errorMessage.value = ''
   try {
-    const shipping = {
+    const shippingPayload = {
       shipping_name: form.shipping_name,
       shipping_email: form.shipping_email,
       shipping_phone: form.shipping_phone || null,
@@ -125,24 +110,48 @@ const submit = async () => {
       shipping_method_id: selectedRate.value?.method_id ?? null,
     }
 
+    // Step 1 — create order in our DB (pending / unpaid)
+    paymentStep.value = 'creating'
+    let order
     if (authStore.isCustomer) {
-      const order = await placeOrder(shipping)
-      await cartStore.load()
-      router.push({ path: '/orders', query: { placed: String(order.id) } })
+      order = await placeOrder(shippingPayload)
     } else {
-      const order = await placeGuestOrder({ ...shipping, items: cartStore.guestOrderItems })
-      await cartStore.clear()
-      router.push({ path: '/orders', query: { placed: String(order.id), guest: '1' } })
+      order = await placeGuestOrder({ ...shippingPayload, items: cartStore.guestOrderItems })
     }
-  } catch (e: any) {
-    const errors = e?.response?.data?.errors
-    if (errors) {
-      errorMessage.value = Object.values(errors).flat().join(' ')
+
+    // Step 2 — create Razorpay order + open modal
+    paymentStep.value = 'paying'
+    const rzpOptions = await createRazorpayOrder(order.id)
+    const payment = await openRazorpayModal(rzpOptions)
+
+    // Step 3 — verify signature server-side
+    paymentStep.value = 'verifying'
+    await verifyRazorpayPayment({
+      order_id: order.id,
+      razorpay_payment_id: payment.razorpay_payment_id,
+      razorpay_order_id: payment.razorpay_order_id,
+      razorpay_signature: payment.razorpay_signature,
+    })
+
+    // Success
+    if (authStore.isCustomer) {
+      await cartStore.load()
     } else {
-      errorMessage.value = e?.response?.data?.message ?? 'Unable to place order. Please try again.'
+      await cartStore.clear()
+    }
+    router.push({ path: '/orders', query: { placed: String(order.id) } })
+  } catch (e: any) {
+    if (e instanceof PaymentCancelledError) {
+      errorMessage.value = 'Payment was cancelled. Your order has been saved — you can retry payment from your orders page.'
+    } else {
+      const errors = e?.response?.data?.errors
+      errorMessage.value = errors
+        ? Object.values(errors).flat().join(' ')
+        : e?.response?.data?.message ?? e?.message ?? 'Unable to complete payment. Please try again.'
     }
   } finally {
     submitting.value = false
+    paymentStep.value = 'idle'
   }
 }
 </script>
@@ -220,20 +229,12 @@ const submit = async () => {
             <div v-if="loadingRates" class="text-sm text-stone-400">Loading shipping options…</div>
             <div v-else-if="shippingRates.length > 0" class="space-y-2">
               <label
-                v-for="rate in shippingRates"
-                :key="rate.method_id"
+                v-for="rate in shippingRates" :key="rate.method_id"
                 class="flex items-center gap-3 border p-3 cursor-pointer transition"
-                :class="selectedRate?.method_id === rate.method_id
-                  ? 'border-stone-900 bg-stone-50'
-                  : 'border-stone-200 hover:border-stone-400'"
+                :class="selectedRate?.method_id === rate.method_id ? 'border-stone-900 bg-stone-50' : 'border-stone-200 hover:border-stone-400'"
               >
-                <input
-                  type="radio"
-                  :value="rate.method_id"
-                  :checked="selectedRate?.method_id === rate.method_id"
-                  @change="selectedRate = rate"
-                  class="accent-stone-900"
-                />
+                <input type="radio" :value="rate.method_id" :checked="selectedRate?.method_id === rate.method_id"
+                  @change="selectedRate = rate" class="accent-stone-900" />
                 <span class="flex-1 text-sm text-stone-800">
                   {{ rate.method_name }}
                   <span v-if="rate.delivery_estimate" class="text-stone-400 ml-1">({{ rate.delivery_estimate }})</span>
@@ -243,9 +244,7 @@ const submit = async () => {
                 </span>
               </label>
             </div>
-            <p v-else-if="form.shipping_postal_code.length >= 5" class="text-sm text-stone-400">
-              No shipping options available for this pincode.
-            </p>
+            <p v-else-if="form.shipping_postal_code.length >= 5" class="text-sm text-stone-400">No shipping options available for this pincode.</p>
             <p v-else class="text-sm text-stone-400">Enter postal code to see shipping options.</p>
           </div>
 
@@ -255,13 +254,21 @@ const submit = async () => {
               class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500"></textarea>
           </div>
 
-          <button
-            type="submit"
-            :disabled="submitting || cartStore.isEmpty"
-            class="w-full bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-400"
-          >
-            {{ submitting ? 'Placing order…' : 'Place Order' }}
+          <button type="submit" :disabled="submitting || cartStore.isEmpty"
+            class="w-full bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-400 flex items-center justify-center gap-2">
+            <svg v-if="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            {{ stepLabel() }}
           </button>
+
+          <!-- Razorpay branding note -->
+          <p class="text-center text-xs text-stone-400">
+            Secured by
+            <span class="font-semibold text-stone-500">Razorpay</span>
+            — UPI · Cards · Net Banking · Wallets
+          </p>
         </form>
       </div>
 
@@ -274,19 +281,11 @@ const submit = async () => {
             <button @click="removeCoupon" class="text-xs text-rose-500 hover:text-rose-700">Remove</button>
           </div>
           <div v-else class="flex gap-2">
-            <input
-              v-model="couponCode"
-              type="text"
-              placeholder="Enter code"
+            <input v-model="couponCode" type="text" placeholder="Enter code"
               class="flex-1 border border-stone-300 px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:border-stone-500"
-              @keyup.enter="applyCoupon"
-            />
-            <button
-              type="button"
-              @click="applyCoupon"
-              :disabled="couponValidating || !couponCode.trim()"
-              class="bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 transition disabled:opacity-50"
-            >
+              @keyup.enter="applyCoupon" />
+            <button type="button" @click="applyCoupon" :disabled="couponValidating || !couponCode.trim()"
+              class="bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-700 transition disabled:opacity-50">
               {{ couponValidating ? '…' : 'Apply' }}
             </button>
           </div>
@@ -311,9 +310,7 @@ const submit = async () => {
             </div>
             <div class="flex justify-between text-sm text-stone-600">
               <span>Shipping</span>
-              <span v-if="selectedRate">
-                {{ selectedRate.is_free ? 'FREE' : `₹${selectedRate.cost.toFixed(2)}` }}
-              </span>
+              <span v-if="selectedRate">{{ selectedRate.is_free ? 'FREE' : `₹${selectedRate.cost.toFixed(2)}` }}</span>
               <span v-else class="text-stone-400">—</span>
             </div>
             <div class="flex justify-between pt-1 font-semibold text-stone-900">

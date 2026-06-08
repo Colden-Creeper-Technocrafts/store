@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
 use App\Http\Controllers\Api\V1\ShippingController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\RazorpayController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
@@ -21,6 +22,11 @@ Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
 Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
+
+// Razorpay — public so guest checkouts work; ownership is validated inside each method
+Route::post('/payments/razorpay/create-order', [RazorpayController::class, 'createOrder']);
+Route::post('/payments/razorpay/verify', [RazorpayController::class, 'verify']);
+Route::post('/payments/razorpay/webhook', [RazorpayController::class, 'webhook']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
