@@ -11,8 +11,12 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
+        'payment_status',
         'subtotal',
+        'discount_amount',
         'total',
+        'coupon_id',
+        'coupon_code',
         'shipping_name',
         'shipping_email',
         'shipping_phone',
@@ -21,12 +25,19 @@ class Order extends Model
         'shipping_postal_code',
         'shipping_country',
         'notes',
+        'admin_notes',
+        'tracking_number',
+        'tracking_url',
     ];
 
     protected $casts = [
-        'subtotal' => 'decimal:2',
-        'total'    => 'decimal:2',
+        'subtotal'        => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'total'           => 'decimal:2',
     ];
+
+    public const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    public const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded'];
 
     public function user(): BelongsTo
     {
@@ -36,5 +47,15 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class)->withDefault();
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(OrderStatusHistory::class)->orderBy('created_at');
     }
 }

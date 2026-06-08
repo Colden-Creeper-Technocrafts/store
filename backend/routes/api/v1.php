@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
@@ -44,6 +45,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Coupons (admin CRUD)
     Route::apiResource('/coupons', CouponController::class);
+
+    // Admin order management
+    Route::prefix('admin/orders')->group(function () {
+        Route::get('/', [AdminOrderController::class, 'index']);
+        Route::get('/{id}', [AdminOrderController::class, 'show']);
+        Route::patch('/{id}/status', [AdminOrderController::class, 'updateStatus']);
+        Route::patch('/{id}/payment-status', [AdminOrderController::class, 'updatePaymentStatus']);
+        Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
+        Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
+    });
 
     Route::post('/logout', [AuthController::class, 'logout']);
 

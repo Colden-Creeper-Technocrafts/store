@@ -8,7 +8,9 @@ use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Order;
+use App\Models\OrderStatusHistory;
 use App\Models\Product;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -171,5 +173,82 @@ class OrderRepository implements OrderRepositoryInterface
             ->where('user_id', $userId)
             ->with('items')
             ->first();
+    }
+
+    // ── Admin ──────────────────────────────────────────────────────────────
+
+    public function adminList(array $filters, int $perPage): LengthAwarePaginator
+    {
+        $query = Order::with(['items', 'user'])
+            ->orderByDesc('created_at');
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['payment_status'])) {
+            $query->where('payment_status', $filters['payment_status']);
+        }
+
+        if (!empty($filters['search'])) {
+            $s = '%' . $filters['search'] . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('shipping_name', 'like', $s)
+                  ->orWhere('shipping_email', 'like', $s)
+                  ->orWhere('id', 'like', ltrim($filters['search'], '#'));
+            });
+        }
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function adminFind(int $orderId): ?Order
+    {
+        return Order::with(['items', 'user', 'statusHistory.changedBy'])->find($orderId);
+    }
+
+    public function updateStatus(Order $order, string $status, ?int $changedBy = null, ?string $note = null): Order
+    {
+        $from = $order->status;
+        $order->update(['status' => $status]);
+
+        OrderStatusHistory::create([
+            'order_id'   => $order->id,
+            'from_status'=> $from,
+            'to_status'  => $status,
+            'changed_by' => $changedBy,
+            'note'       => $note,
+        ]);
+
+        return $order->fresh(['items', 'statusHistory.changedBy']);
+    }
+
+    public function updatePaymentStatus(Order $order, string $paymentStatus): Order
+    {
+        $order->update(['payment_status' => $paymentStatus]);
+        return $order->fresh();
+    }
+
+    public function updateTracking(Order $order, ?string $trackingNumber, ?string $trackingUrl): Order
+    {
+        $order->update([
+            'tracking_number' => $trackingNumber,
+            'tracking_url'    => $trackingUrl,
+        ]);
+        return $order->fresh();
+    }
+
+    public function updateAdminNotes(Order $order, ?string $notes): Order
+    {
+        $order->update(['admin_notes' => $notes]);
+        return $order->fresh();
     }
 }

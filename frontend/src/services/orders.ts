@@ -13,8 +13,11 @@ export type OrderItem = {
 export type Order = {
   id: number
   status: string
+  payment_status: string
   subtotal: number
+  discount_amount: number
   total: number
+  coupon_code: string | null
   shipping_name: string
   shipping_email: string
   shipping_phone: string | null
@@ -23,6 +26,8 @@ export type Order = {
   shipping_postal_code: string
   shipping_country: string
   notes: string | null
+  tracking_number: string | null
+  tracking_url: string | null
   created_at: string
   items: OrderItem[]
 }
