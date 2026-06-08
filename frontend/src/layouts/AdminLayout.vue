@@ -19,7 +19,7 @@ const menuItems = [
     title: 'Orders',
     icon: '🛒',
     children: [
-      { title: 'All Orders', to: '/orders' },
+      { title: 'All Orders', to: '/backstore/orders' },
       { title: 'Fulfillment', to: '/orders/fulfillment' },
       { title: 'Returns', to: '/orders/returns' }
     ]
