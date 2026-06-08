@@ -50,6 +50,11 @@ class Product extends Model
         return $this->hasOne(ProductVariant::class)->where('is_default', true);
     }
 
+    public function primaryImage(): HasOne
+    {
+        return $this->hasOne(ProductImage::class)->where('is_primary', true);
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
