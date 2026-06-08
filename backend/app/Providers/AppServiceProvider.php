@@ -20,6 +20,8 @@ use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductVariantRepository;
 use App\Repositories\StorefrontRepository;
+use App\Shipping\ShippingProviderManager;
+use App\Shipping\ShippingRuleEngine;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -38,6 +40,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
         $this->app->bind(ProductVariantRepositoryInterface::class, ProductVariantRepository::class);
         $this->app->bind(StorefrontRepositoryInterface::class, StorefrontRepository::class);
+        $this->app->singleton(ShippingProviderManager::class);
+        $this->app->singleton(ShippingRuleEngine::class);
     }
 
     /**

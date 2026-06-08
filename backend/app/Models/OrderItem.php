@@ -15,12 +15,14 @@ class OrderItem extends Model
         'price',
         'quantity',
         'subtotal',
+        'weight_kg',
     ];
 
     protected $casts = [
-        'price'    => 'decimal:2',
-        'subtotal' => 'decimal:2',
-        'quantity' => 'integer',
+        'price'     => 'decimal:2',
+        'subtotal'  => 'decimal:2',
+        'quantity'  => 'integer',
+        'weight_kg' => 'decimal:3',
     ];
 
     public function order(): BelongsTo
