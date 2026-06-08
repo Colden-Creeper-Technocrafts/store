@@ -10,6 +10,7 @@ import AdminLoginPage from '../admin/LoginPage.vue'
 import AdminSettingsPage from '../admin/SettingsPage.vue'
 import AdminCategoriesPage from '../admin/CategoriesPage.vue'
 import AdminProductsPage from '../admin/ProductsPage.vue'
+import AdminCouponsPage from '../admin/CouponsPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 
@@ -77,6 +78,11 @@ const routes = [
     path: '/backstore/settings',
     component: AdminSettingsPage,
     meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/coupons',
+    component: AdminCouponsPage,
+    meta: { requiresAdmin: true }
   }
 ]
 
@@ -135,6 +141,10 @@ router.beforeEach((to) => {
     if (!isCustomer) {
       return isAdmin ? '/backstore/dashboard' : '/'
     }
+  }
+
+  if (to.path === '/orders' && !isLoggedIn && !to.query?.placed) {
+    return '/login'
   }
 })
 
