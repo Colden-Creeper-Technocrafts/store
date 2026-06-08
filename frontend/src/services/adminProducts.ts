@@ -9,6 +9,7 @@ export type AdminProduct = {
   status?: boolean
   category_id?: number | null
   category_name?: string | null
+  short_description?: string | null
   description?: string | null
 }
 
@@ -23,6 +24,15 @@ export type AdminProductVariant = {
   status?: boolean
   options?: Record<string, any> | null
   is_default?: boolean
+}
+
+export type AdminProductImage = {
+  id: number
+  product_id: number
+  image: string
+  image_url: string
+  sort_order: number
+  is_primary: boolean
 }
 
 export const loadAdminProducts = async (params: Record<string, any> = {}): Promise<{ products: AdminProduct[]; meta: any }> => {
@@ -68,4 +78,51 @@ export const updateAdminProductVariant = async (productId: number, variantId: nu
 
 export const deleteAdminProductVariant = async (productId: number, variantId: number): Promise<void> => {
   await api.delete(`/products/${productId}/variants/${variantId}`)
+}
+
+export const loadAdminProductImages = async (productId: number): Promise<AdminProductImage[]> => {
+  const response = await api.get(`/products/${productId}/images`)
+  return Array.isArray(response?.data?.images) ? response.data.images : []
+}
+
+export const createAdminProductImage = async (
+  productId: number,
+  payload: { image: File; sort_order?: number | null; is_primary?: boolean }
+): Promise<AdminProductImage> => {
+  const formData = new FormData()
+  formData.append('image', payload.image)
+
+  if (payload.sort_order !== undefined && payload.sort_order !== null) {
+    formData.append('sort_order', String(payload.sort_order))
+  }
+
+  if (payload.is_primary !== undefined) {
+    formData.append('is_primary', payload.is_primary ? '1' : '0')
+  }
+
+  const response = await api.post(`/products/${productId}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+  return response.data.image
+}
+
+export const updateAdminProductImage = async (
+  productId: number,
+  imageId: number,
+  payload: { sort_order?: number | null; is_primary?: boolean }
+): Promise<AdminProductImage> => {
+  const response = await api.put(`/products/${productId}/images/${imageId}`, payload)
+  return response.data.image
+}
+
+export const deleteAdminProductImage = async (productId: number, imageId: number): Promise<void> => {
+  await api.delete(`/products/${productId}/images/${imageId}`)
+}
+
+export const loadProductImageDefaults = async (): Promise<{ default_image: string }> => {
+  const response = await api.get('/products/images/defaults')
+  return {
+    default_image: response?.data?.default_image ?? '',
+  }
 }

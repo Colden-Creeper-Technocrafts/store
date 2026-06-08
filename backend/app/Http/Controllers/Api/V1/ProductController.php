@@ -19,7 +19,13 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $paginated = $this->products->paginateForAdmin($request->query())->appends($request->query());
+            $store = $this->products->resolveActiveStore();
+
+            if (!$store) {
+                return response()->json(['success' => true, 'products' => [], 'meta' => []]);
+            }
+
+            $paginated = $this->products->paginateForAdmin((int) $store->id, $request->query())->appends($request->query());
             
             $products = collect($paginated->items())->map(function ($product) {
                 $defaultVariant = $product->defaultVariant;
@@ -28,10 +34,10 @@ class ProductController extends Controller
                     $product->toArray(),
                     [
                         'category_name' => $product->category?->name,
-                        'sku' => $defaultVariant->sku ?? $product->sku,
-                        'price' => $defaultVariant->price ?? $product->price,
-                        'quantity' => $defaultVariant->quantity ?? $product->quantity,
-                        'status' => $defaultVariant->status ?? $product->status,
+                        'sku' => $defaultVariant?->sku ?? $product->sku,
+                        'price' => $defaultVariant?->price ?? $product->price,
+                        'quantity' => $defaultVariant?->quantity ?? $product->quantity,
+                        'status' => $defaultVariant?->status ?? $product->status,
                     ]
                 );
             })->all();
@@ -51,9 +57,15 @@ class ProductController extends Controller
         ]);
     }
 
-    public function show($id): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $product = $this->products->findWithDefaultVariant((int) $id);
+        $store = $this->products->resolveActiveStore();
+
+        if (!$store) {
+            return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+        }
+
+        $product = $this->products->findForStore((int) $store->id, $id);
 
         if (!$product) {
             return response()->json(['success' => false, 'product' => null], 404);
@@ -65,7 +77,13 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request): JsonResponse
     {
         try {
-            $product = $this->products->create($request->validated());
+            $store = $this->products->resolveActiveStore();
+
+            if (!$store) {
+                return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+            }
+
+            $product = $this->products->createForStore((int) $store->id, $request->validated());
         } catch (QueryException $e) {
             return response()->json(['success' => false, 'product' => null], 500);
         }
@@ -73,9 +91,15 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'product' => $product]);
     }
 
-    public function update(UpdateProductRequest $request, $id): JsonResponse
+    public function update(UpdateProductRequest $request, int $id): JsonResponse
     {
-        $product = $this->products->find((int) $id);
+        $store = $this->products->resolveActiveStore();
+
+        if (!$store) {
+            return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+        }
+
+        $product = $this->products->findForStore((int) $store->id, $id);
 
         if (!$product) {
             return response()->json(['success' => false, 'product' => null], 404);
@@ -90,9 +114,15 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'product' => $product]);
     }
 
-    public function destroy($id): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
-        $product = $this->products->find((int) $id);
+        $store = $this->products->resolveActiveStore();
+
+        if (!$store) {
+            return response()->json(['success' => false, 'message' => 'Store not found'], 404);
+        }
+
+        $product = $this->products->findForStore((int) $store->id, $id);
 
         if (!$product) {
             return response()->json(['success' => false], 404);

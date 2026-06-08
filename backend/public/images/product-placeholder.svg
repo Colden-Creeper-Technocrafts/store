@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-label="Product image placeholder">
+  <rect width="900" height="600" fill="#f1f5f9"/>
+  <rect x="90" y="70" width="720" height="460" rx="36" fill="#ffffff" stroke="#cbd5e1" stroke-width="4"/>
+  <circle cx="330" cy="245" r="54" fill="#cbd5e1"/>
+  <path d="M180 455 360 320 470 405 560 330 720 455Z" fill="#94a3b8"/>
+  <path d="M180 455H720V490H180Z" fill="#64748b"/>
+  <text x="450" y="165" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="700" fill="#334155">Product Image</text>
+  <text x="450" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#64748b">Upload an image to replace this placeholder</text>
+</svg>

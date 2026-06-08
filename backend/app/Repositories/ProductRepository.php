@@ -3,55 +3,76 @@
 namespace App\Repositories;
 
 use App\Interfaces\ProductRepositoryInterface;
+use App\Interfaces\StorefrontRepositoryInterface;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ProductRepository implements ProductRepositoryInterface
 {
-    public function paginateForAdmin(array $filters): LengthAwarePaginator
+    public function __construct(private readonly StorefrontRepositoryInterface $storefront)
+    {
+    }
+
+    public function resolveActiveStore(): ?object
+    {
+        return $this->storefront->resolveActiveStore();
+    }
+
+    public function paginateForAdmin(int $storeId, array $filters): LengthAwarePaginator
     {
         $perPage = (int) ($filters['per_page'] ?? 20);
         $perPage = $perPage > 0 ? min(100, $perPage) : 20;
 
-        $query = Product::with(['category', 'defaultVariant']);
+        $query = Product::with(['category', 'defaultVariant'])
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->where(function ($q) use ($storeId) {
+                $q->where('categories.store_setting_id', $storeId)
+                    ->orWhereNull('products.category_id');
+            })
+            ->select('products.*');
 
         if (!empty($filters['category_id'])) {
-            $query->where('category_id', (int) $filters['category_id']);
+            $query->where('products.category_id', (int) $filters['category_id']);
         }
 
         if (array_key_exists('status', $filters)) {
             $status = $filters['status'];
 
             if ($status === '1' || $status === '0' || is_bool($status)) {
-                $query->where('status', (bool) $status);
+                $query->where('products.status', (bool) $status);
             }
         }
 
         if (!empty($filters['search'])) {
             $search = (string) $filters['search'];
 
-            $query->where(function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('short_description', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('products.name', 'like', "%{$search}%")
+                    ->orWhere('products.sku', 'like', "%{$search}%")
+                    ->orWhere('products.short_description', 'like', "%{$search}%");
             });
         }
 
-        return $query->orderBy('name')->paginate($perPage);
+        return $query->orderBy('products.name')->paginate($perPage);
     }
 
-    public function findWithDefaultVariant(int $id): ?Product
+    public function findForStore(int $storeId, int $id): ?Product
     {
-        return Product::with('defaultVariant')->find($id);
+        return Product::with(['category', 'defaultVariant', 'images'])
+            ->join('categories', 'products.category_id', '=', 'categories.id')
+            ->where('categories.store_setting_id', $storeId)
+            ->where('products.id', $id)
+            ->select('products.*')
+            ->first();
     }
 
-    public function find(int $id): ?Product
+    public function createForStore(int $_storeId, array $payload): Product
     {
-        return Product::find($id);
+        return $this->create($payload);
     }
 
-    public function create(array $payload): Product
+    private function create(array $payload): Product
     {
         return DB::transaction(function () use ($payload) {
             $product = Product::create($payload + [

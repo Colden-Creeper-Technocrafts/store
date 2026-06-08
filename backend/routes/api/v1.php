@@ -18,6 +18,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('/categories', CategoryController::class);
     Route::apiResource('/products', \App\Http\Controllers\Api\V1\ProductController::class);
+    Route::get('/products/images/defaults', [\App\Http\Controllers\Api\V1\ProductImageController::class, 'defaults']);
+    Route::apiResource('/products.images', \App\Http\Controllers\Api\V1\ProductImageController::class)->except(['show']);
     Route::apiResource('/products.variants', \App\Http\Controllers\Api\V1\ProductVariantController::class);
 
     Route::post('/logout', [AuthController::class, 'logout']);

@@ -65,8 +65,7 @@ class StorefrontRepository implements StorefrontRepositoryInterface
             })
             ->join('categories', function ($join) use ($store) {
                 $join->on('products.category_id', '=', 'categories.id')
-                    ->where('categories.store_setting_id', $store->id)
-                    ->where('categories.is_active', true);
+                    ->where('categories.store_setting_id', $store->id);
             })
             ->select([
                 'products.id',
@@ -88,7 +87,13 @@ class StorefrontRepository implements StorefrontRepositoryInterface
             $productsQuery->whereIn('products.category_id', $categoryIds);
         }
 
-        return $productsQuery->orderBy('products.name')->get();
+        return $productsQuery->orderBy('products.name')->get()->map(function (object $product): object {
+            $product->image = $product->image
+                ? asset('storage/'.ltrim($product->image, '/'))
+                : asset('images/product-placeholder.svg');
+
+            return $product;
+        });
     }
 
     public function resolveCategoryDescendants(Collection $categories, array $selectedIds): array

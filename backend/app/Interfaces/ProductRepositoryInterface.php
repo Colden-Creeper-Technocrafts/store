@@ -7,13 +7,13 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface ProductRepositoryInterface
 {
-    public function paginateForAdmin(array $filters): LengthAwarePaginator;
+    public function resolveActiveStore(): ?object;
 
-    public function findWithDefaultVariant(int $id): ?Product;
+    public function paginateForAdmin(int $storeId, array $filters): LengthAwarePaginator;
 
-    public function find(int $id): ?Product;
+    public function findForStore(int $storeId, int $id): ?Product;
 
-    public function create(array $payload): Product;
+    public function createForStore(int $storeId, array $payload): Product;
 
     public function update(Product $product, array $payload): Product;
 
