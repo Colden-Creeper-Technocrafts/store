@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import type { AdminProduct, AdminProductVariant } from '../services/adminProducts'
-import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant } from '../services/adminProducts'
+import type { AdminProduct, AdminProductImage, AdminProductVariant } from '../services/adminProducts'
+import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, loadProductImageDefaults } from '../services/adminProducts'
 import { loadAdminCategories } from '../services/adminCategories'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
@@ -25,6 +25,11 @@ const variants = ref<AdminProductVariant[]>([])
 const variantLoading = ref(false)
 const editingVariantId = ref<number | null>(null)
 const showVariantForm = ref(false)
+const images = ref<AdminProductImage[]>([])
+const imageLoading = ref(false)
+const selectedImage = ref<File | null>(null)
+const imageInputRef = ref<HTMLInputElement | null>(null)
+const defaultProductImage = ref('')
 
 const form = reactive({
   name: '',
@@ -33,6 +38,7 @@ const form = reactive({
   quantity: 0,
   category_id: null as number | null,
   status: true,
+  short_description: '',
   description: ''
 })
 
@@ -84,6 +90,15 @@ const loadCategories = async () => {
   }
 }
 
+const loadImageDefaults = async () => {
+  try {
+    const defaults = await loadProductImageDefaults()
+    defaultProductImage.value = defaults.default_image
+  } catch (e) {
+    defaultProductImage.value = '/images/product-placeholder.svg'
+  }
+}
+
 const resetForm = () => {
   editingId.value = null
   form.name = ''
@@ -92,11 +107,13 @@ const resetForm = () => {
   form.quantity = 0
   form.category_id = null
   form.status = true
+  form.short_description = ''
   form.description = ''
   successMessage.value = ''
   errorMessage.value = ''
   showForm.value = false
   resetVariants()
+  resetImages()
 }
 
 const resetVariantForm = () => {
@@ -116,6 +133,16 @@ const resetVariants = () => {
   variants.value = []
   variantLoading.value = false
   resetVariantForm()
+}
+
+const resetImages = () => {
+  images.value = []
+  imageLoading.value = false
+  selectedImage.value = null
+
+  if (imageInputRef.value) {
+    imageInputRef.value.value = ''
+  }
 }
 
 const syncDefaultVariantToForm = () => {
@@ -141,6 +168,22 @@ const loadVariants = async (productId: number) => {
   }
 }
 
+const loadImages = async (productId: number) => {
+  imageLoading.value = true
+  try {
+    images.value = await loadAdminProductImages(productId)
+  } catch (e) {
+    images.value = []
+  } finally {
+    imageLoading.value = false
+  }
+}
+
+const onImageSelected = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  selectedImage.value = target.files?.[0] ?? null
+}
+
 const editProduct = async (p: AdminProduct) => {
   editingId.value = p.id
   form.name = p.name
@@ -148,11 +191,14 @@ const editProduct = async (p: AdminProduct) => {
   form.price = p.price ?? 0
   form.quantity = p.quantity ?? 0
   form.category_id = p.category_id ?? null
+  form.short_description = p.short_description ?? ''
   form.description = p.description ?? ''
   form.status = p.status ?? true
   showForm.value = true
   resetVariants()
+  resetImages()
   await loadVariants(p.id)
+  await loadImages(p.id)
   setTimeout(() => {
     formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, 0)
@@ -241,6 +287,78 @@ const removeVariant = async (variant: AdminProductVariant) => {
   }
 }
 
+const uploadImage = async () => {
+  if (!editingId.value || !selectedImage.value) {
+    return
+  }
+
+  isSaving.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    await createAdminProductImage(editingId.value, {
+      image: selectedImage.value,
+      sort_order: images.value.length,
+      is_primary: images.value.length === 0,
+    })
+    successMessage.value = 'Image uploaded.'
+    selectedImage.value = null
+
+    if (imageInputRef.value) {
+      imageInputRef.value.value = ''
+    }
+
+    await loadImages(editingId.value)
+  } catch (e: any) {
+    const response = e?.response?.data
+    const firstError = response?.errors ? Object.values(response.errors).find((messages) => Array.isArray(messages) && messages.length) : null
+    errorMessage.value = Array.isArray(firstError) ? firstError[0] : 'Unable to upload image.'
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const setPrimaryImage = async (image: AdminProductImage) => {
+  if (!editingId.value) {
+    return
+  }
+
+  try {
+    await updateAdminProductImage(editingId.value, image.id, { is_primary: true, sort_order: image.sort_order })
+    successMessage.value = 'Primary image updated.'
+    await loadImages(editingId.value)
+  } catch (e) {
+    errorMessage.value = 'Unable to update primary image.'
+  }
+}
+
+const updateImageSortOrder = async (image: AdminProductImage) => {
+  if (!editingId.value) {
+    return
+  }
+
+  try {
+    await updateAdminProductImage(editingId.value, image.id, { sort_order: image.sort_order, is_primary: image.is_primary })
+    successMessage.value = 'Image order updated.'
+    await loadImages(editingId.value)
+  } catch (e) {
+    errorMessage.value = 'Unable to update image order.'
+  }
+}
+
+const removeImage = async (image: AdminProductImage) => {
+  if (!editingId.value || !confirm('Delete this product image?')) return
+
+  try {
+    await deleteAdminProductImage(editingId.value, image.id)
+    successMessage.value = 'Image deleted.'
+    await loadImages(editingId.value)
+  } catch (e) {
+    errorMessage.value = 'Unable to delete image.'
+  }
+}
+
 const saveProduct = async () => {
   isSaving.value = true
   errorMessage.value = ''
@@ -254,7 +372,8 @@ const saveProduct = async () => {
       quantity: form.quantity,
       status: form.status,
       category_id: form.category_id,
-      description: form.description,
+      short_description: form.short_description || null,
+      description: form.description || null,
     }
 
     if (editingId.value) {
@@ -319,6 +438,7 @@ const changePage = (p: number) => {
 onMounted(() => {
   loadProducts()
   loadCategories()
+  loadImageDefaults()
 })
 </script>
 
@@ -448,6 +568,10 @@ onMounted(() => {
             </div>
 
             <div>
+              <label class="block text-sm font-medium text-slate-700">Short description <span class="font-normal text-slate-400">(shown on storefront cards)</span></label>
+              <textarea v-model="form.short_description" rows="2" class="mt-2 w-full rounded-3xl border px-4 py-3"></textarea>
+            </div>
+            <div>
               <label class="block text-sm font-medium text-slate-700">Description</label>
               <textarea v-model="form.description" rows="3" class="mt-2 w-full rounded-3xl border px-4 py-3"></textarea>
             </div>
@@ -468,6 +592,43 @@ onMounted(() => {
               </div>
             </div>
           </form>
+
+          <div v-if="editingId" class="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Product images</p>
+                <p class="mt-1 text-sm text-slate-500">Upload gallery images and choose the primary storefront image.</p>
+              </div>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Image</label>
+                  <input ref="imageInputRef" type="file" accept="image/*" class="mt-2 block w-full text-sm text-slate-700" @change="onImageSelected" />
+                </div>
+                <button type="button" :disabled="isSaving || !selectedImage" class="rounded-full bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-300" @click="uploadImage">Upload image</button>
+              </div>
+            </div>
+
+            <div v-if="imageLoading" class="text-sm text-slate-500">Loading images...</div>
+            <div v-else-if="!images.length" class="rounded-3xl border border-dashed border-slate-300 bg-white p-4">
+              <img v-if="defaultProductImage" :src="defaultProductImage" alt="" class="h-40 w-full rounded-2xl object-cover" />
+              <p class="mt-3 text-sm text-slate-500">No images uploaded yet. Customers will see this default image.</p>
+            </div>
+            <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div v-for="image in images" :key="image.id" class="rounded-3xl border border-slate-200 bg-white p-3">
+                <img :src="image.image_url" alt="" class="h-36 w-full rounded-2xl object-cover" />
+                <div class="mt-3 flex items-center justify-between gap-2">
+                  <span :class="['rounded-full px-2 py-1 text-xs font-semibold', image.is_primary ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600']">
+                    {{ image.is_primary ? 'Primary' : 'Gallery' }}
+                  </span>
+                  <input v-model.number="image.sort_order" type="number" min="0" class="w-20 rounded-full border px-3 py-1 text-sm" @change="updateImageSortOrder(image)" />
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button type="button" :disabled="image.is_primary" class="rounded-full border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50" @click="setPrimaryImage(image)">Set primary</button>
+                  <button type="button" class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm text-rose-700" @click="removeImage(image)">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div v-if="editingId" class="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
             <div class="mb-4 flex items-center justify-between">

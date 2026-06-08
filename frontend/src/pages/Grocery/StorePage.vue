@@ -52,7 +52,7 @@ onMounted(async () => {
         >
           <div
             class="h-40 bg-cover bg-center"
-            :style="{ backgroundImage: `url(${product.image ?? 'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=900&q=80'})` }"
+            :style="{ backgroundImage: `url(${product.image})` }"
           ></div>
           <div class="p-5">
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{{ product.category_name }}</p>
