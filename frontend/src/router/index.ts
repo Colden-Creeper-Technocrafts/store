@@ -136,6 +136,10 @@ router.beforeEach((to) => {
       return isAdmin ? '/backstore/dashboard' : '/'
     }
   }
+
+  if (to.path === '/orders' && !isLoggedIn && !to.query?.placed) {
+    return '/login'
+  }
 })
 
 export default router

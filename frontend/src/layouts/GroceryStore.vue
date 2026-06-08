@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useCartStore } from '../stores/cart'
 import { useStorefront } from '../services/storefront'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const cartStore = useCartStore()
 const { storeName } = useStorefront()
 
 const normalizedRole = computed(() => authStore.role?.toLowerCase() ?? '')
@@ -16,8 +18,18 @@ const displayName = computed(() => authStore.user?.name || 'Customer')
 
 const logout = () => {
   authStore.logout()
+  cartStore.reset()
   router.push('/')
 }
+
+onMounted(() => {
+  if (isCustomer.value) cartStore.load()
+})
+
+watch(isCustomer, (val) => {
+  if (val) cartStore.load()
+  else cartStore.reset()
+})
 </script>
 
 <template>
@@ -47,11 +59,15 @@ const logout = () => {
 
           <router-link
             to="/cart"
-            class="border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-50"
+            class="relative border border-emerald-300 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-50"
             aria-label="Cart"
             title="Cart"
           >
             &#128722;
+            <span
+              v-if="cartStore.itemCount > 0"
+              class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-[10px] font-bold text-white"
+            >{{ cartStore.itemCount }}</span>
           </router-link>
 
           <template v-if="isCustomer">

@@ -23,6 +23,7 @@ export type StorefrontProduct = {
   image?: string | null
   price?: number | null
   sale_price?: number | null
+  quantity?: number | null
 }
 
 const products = ref<StorefrontProduct[]>([])
