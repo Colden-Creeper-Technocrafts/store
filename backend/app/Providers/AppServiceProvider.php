@@ -22,6 +22,8 @@ use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductVariantRepository;
 use App\Repositories\StorefrontRepository;
+use App\Services\NotificationService;
+use App\Services\SmsService;
 use App\Shipping\ShippingProviderManager;
 use App\Shipping\ShippingRuleEngine;
 use Illuminate\Support\ServiceProvider;
@@ -45,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(StorefrontRepositoryInterface::class, StorefrontRepository::class);
         $this->app->singleton(ShippingProviderManager::class);
         $this->app->singleton(ShippingRuleEngine::class);
+        $this->app->singleton(SmsService::class);
+        $this->app->singleton(NotificationService::class);
     }
 
     /**

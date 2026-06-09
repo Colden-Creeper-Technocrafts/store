@@ -10,6 +10,7 @@ use App\Models\CouponUsage;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
+use App\Services\NotificationService;
 use App\Shipping\DTOs\RateRequest;
 use App\Shipping\ShippingRuleEngine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -22,11 +23,12 @@ class OrderRepository implements OrderRepositoryInterface
     public function __construct(
         private readonly CouponRepositoryInterface $coupons,
         private readonly ShippingRuleEngine $engine,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function createFromCart(int $userId, Cart $cart, array $shippingData, ?Coupon $coupon = null): Order
     {
-        return DB::transaction(function () use ($userId, $cart, $shippingData, $coupon) {
+        $order = DB::transaction(function () use ($userId, $cart, $shippingData, $coupon) {
             $cart->load('items');
 
             $productIds     = $cart->items->pluck('product_id')->all();
@@ -93,11 +95,15 @@ class OrderRepository implements OrderRepositoryInterface
 
             return $order->load('items');
         });
+
+        $this->notifications->notifyOrderPlaced($order);
+
+        return $order;
     }
 
     public function createFromGuestItems(array $items, array $shippingData, ?Coupon $coupon = null): Order
     {
-        return DB::transaction(function () use ($items, $shippingData, $coupon) {
+        $order = DB::transaction(function () use ($items, $shippingData, $coupon) {
             $productIds     = array_column($items, 'product_id');
             $lockedProducts = Product::whereIn('id', $productIds)
                 ->lockForUpdate()
@@ -160,6 +166,10 @@ class OrderRepository implements OrderRepositoryInterface
 
             return $order->load('items');
         });
+
+        $this->notifications->notifyOrderPlaced($order);
+
+        return $order;
     }
 
     private function resolveShippingCost(array $shippingData, float $subtotal, float $totalWeightKg): array
@@ -281,7 +291,10 @@ class OrderRepository implements OrderRepositoryInterface
             'note'       => $note,
         ]);
 
-        return $order->fresh(['items', 'statusHistory.changedBy']);
+        $updated = $order->fresh(['items', 'statusHistory.changedBy']);
+        $this->notifications->notifyStatusChanged($updated, $from);
+
+        return $updated;
     }
 
     public function updatePaymentStatus(Order $order, string $paymentStatus): Order
@@ -296,7 +309,9 @@ class OrderRepository implements OrderRepositoryInterface
             'tracking_number' => $trackingNumber,
             'tracking_url'    => $trackingUrl,
         ]);
-        return $order->fresh();
+        $updated = $order->fresh(['items']);
+        $this->notifications->notifyTrackingUpdated($updated);
+        return $updated;
     }
 
     public function updateAdminNotes(Order $order, ?string $notes): Order
@@ -318,6 +333,8 @@ class OrderRepository implements OrderRepositoryInterface
         }
 
         $order->update($data);
-        return $order->fresh(['items', 'user']);
+        $updated = $order->fresh(['items', 'user']);
+        $this->notifications->notifyReturnStatusUpdated($updated);
+        return $updated;
     }
 }

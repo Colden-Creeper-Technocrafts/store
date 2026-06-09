@@ -14,13 +14,15 @@ class StoreSetting extends Model
         'store_description',
         'currency',
         'features',
+        'notification_config',
         'layout',
         'is_active',
     ];
 
     protected $casts = [
-        'features'  => 'array',
-        'is_active' => 'boolean',
+        'features'            => 'array',
+        'notification_config' => 'array',
+        'is_active'           => 'boolean',
     ];
 
     public static function active(): ?self

@@ -17,6 +17,7 @@ import AdminShippingPage from '../admin/ShippingPage.vue'
 import AdminCustomersPage from '../admin/CustomersPage.vue'
 import AdminReturnsPage from '../admin/ReturnsPage.vue'
 import AdminFulfillmentPage from '../admin/FulfillmentPage.vue'
+import AdminNotificationsPage from '../admin/NotificationsPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 
@@ -118,6 +119,11 @@ const routes = [
   {
     path: '/backstore/fulfillment',
     component: AdminFulfillmentPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/notifications',
+    component: AdminNotificationsPage,
     meta: { requiresAdmin: true }
   }
 ]
