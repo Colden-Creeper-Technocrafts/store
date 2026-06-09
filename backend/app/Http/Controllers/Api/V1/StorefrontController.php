@@ -92,6 +92,27 @@ class StorefrontController extends Controller
         ]);
     }
 
+    public function productDetail(string $slug): JsonResponse
+    {
+        try {
+            $store = $this->storefront->resolveActiveStore();
+
+            if (!$store) {
+                return response()->json(['success' => false, 'message' => 'Store not found.'], 404);
+            }
+
+            $product = $this->storefront->findProductBySlug($store, $slug);
+        } catch (QueryException) {
+            return response()->json(['success' => false, 'message' => 'Server error.'], 500);
+        }
+
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        return response()->json(['success' => true, 'product' => $product]);
+    }
+
     public function products(StorefrontProductsRequest $request): JsonResponse
     {
         try {

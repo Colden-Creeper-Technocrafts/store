@@ -18,12 +18,16 @@ const categoriesLoaded = ref(false)
 export type StorefrontProduct = {
   id: number
   name: string
+  slug?: string | null
+  sku?: string | null
   category_name?: string | null
   short_description?: string | null
+  description?: string | null
   image?: string | null
   price?: number | null
   sale_price?: number | null
   quantity?: number | null
+  weight?: number | null
 }
 
 const products = ref<StorefrontProduct[]>([])
@@ -104,6 +108,15 @@ export const productsStore = () => ({
   products,
   productsLoaded,
 })
+
+export const loadStoreProduct = async (slug: string): Promise<StorefrontProduct | null> => {
+  try {
+    const response = await api.get(`/storefront/products/${encodeURIComponent(slug)}`)
+    return response?.data?.product ?? null
+  } catch {
+    return null
+  }
+}
 
 export const loadStoreProducts = async (categoryIds: number[] = []): Promise<void> => {
   if (productsLoadingPromise) {

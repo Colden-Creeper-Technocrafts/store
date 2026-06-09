@@ -22,6 +22,7 @@ Route::post('/backstore/login', [AuthController::class, 'backstoreLogin']);
 Route::get('/storefront', [StorefrontController::class, 'show']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
+Route::get('/storefront/products/{slug}', [StorefrontController::class, 'productDetail']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
 Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
