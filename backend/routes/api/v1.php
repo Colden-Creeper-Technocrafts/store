@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AdminAnalyticsController;
+use App\Http\Controllers\Api\V1\AdminNotificationController;
 use App\Http\Controllers\Api\V1\AdminSettingsController;
 use App\Http\Controllers\Api\V1\AdminCustomerController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
@@ -110,6 +111,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin/customers')->group(function () {
         Route::get('/', [AdminCustomerController::class, 'index']);
         Route::get('/{id}', [AdminCustomerController::class, 'show']);
+    });
+
+    // Admin notification settings & logs
+    Route::prefix('admin/notifications')->group(function () {
+        Route::get('/settings', [AdminNotificationController::class, 'show']);
+        Route::put('/settings', [AdminNotificationController::class, 'update']);
+        Route::get('/logs', [AdminNotificationController::class, 'logs']);
     });
 
     Route::post('/logout', [AuthController::class, 'logout']);
