@@ -96,6 +96,45 @@ class StorefrontRepository implements StorefrontRepositoryInterface
         });
     }
 
+    public function findProductBySlug(object $store, string $slug): ?object
+    {
+        $product = DB::table('products')
+            ->leftJoin('product_images', function ($join) {
+                $join->on('products.id', '=', 'product_images.product_id')
+                    ->where('product_images.is_primary', true);
+            })
+            ->join('categories', function ($join) use ($store) {
+                $join->on('products.category_id', '=', 'categories.id')
+                    ->where('categories.store_setting_id', $store->id);
+            })
+            ->select([
+                'products.id',
+                'products.name',
+                'products.slug',
+                'products.sku',
+                'products.short_description',
+                'products.description',
+                'products.price',
+                'products.sale_price',
+                'products.quantity',
+                'products.weight',
+                'products.category_id',
+                'categories.name as category_name',
+                'product_images.image',
+            ])
+            ->where('products.status', true)
+            ->where('products.slug', $slug)
+            ->first();
+
+        if ($product) {
+            $product->image = $product->image
+                ? asset('storage/' . ltrim($product->image, '/'))
+                : asset('images/product-placeholder.svg');
+        }
+
+        return $product;
+    }
+
     public function resolveCategoryDescendants(Collection $categories, array $selectedIds): array
     {
         $allIds = [];

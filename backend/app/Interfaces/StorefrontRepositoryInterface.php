@@ -15,4 +15,6 @@ interface StorefrontRepositoryInterface
     public function activeProducts(object $store, array $categoryIds = []): Collection;
 
     public function resolveCategoryDescendants(Collection $categories, array $selectedIds): array;
+
+    public function findProductBySlug(object $store, string $slug): ?object;
 }

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import StorefrontHomePage from '../pages/Storefront/HomePage.vue'
 import StorefrontStorePage from '../pages/Storefront/StorePage.vue'
+import StorefrontProductDetailPage from '../pages/Storefront/ProductDetailPage.vue'
 import StorefrontCheckoutPage from '../pages/Storefront/CheckoutPage.vue'
 import StorefrontCartPage from '../pages/Storefront/CartPage.vue'
 import StorefrontOrdersPage from '../pages/Storefront/OrdersPage.vue'
@@ -28,6 +29,11 @@ const routes = [
   {
     path: '/store',
     component: StorefrontStorePage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/product/:slug',
+    component: StorefrontProductDetailPage,
     meta: { layout: 'store' }
   },
   {

@@ -1,10 +1,8 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
-
-import AuthLayout from '../layouts/AuthLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,39 +16,31 @@ const loading = ref(false)
 
 const isRegisterMode = computed(() => route.path === '/register')
 
-const pageTitle = computed(() => (isRegisterMode.value ? 'Create Your Account' : 'Welcome Back'))
-
 const switchMode = () => {
   router.push(isRegisterMode.value ? '/login' : '/register')
 }
 
-const redirectByRole = (role) => {
-  const normalizedRole = role?.toLowerCase() || ''
-
-  if (normalizedRole === 'admin') {
+const redirectByRole = (role: string) => {
+  if ((role ?? '').toLowerCase() === 'admin') {
     router.push('/backstore/dashboard')
     return
   }
-
   router.push('/')
 }
 
 const submit = async () => {
   error.value = ''
   loading.value = true
-
   try {
     const payload = isRegisterMode.value
       ? { name: name.value, email: email.value, password: password.value }
       : { email: email.value, password: password.value }
-
     const endpoint = isRegisterMode.value ? '/register' : '/login'
     const response = await api.post(endpoint, payload)
     const { token, user, role } = response.data
-
     authStore.setAuth({ token, user, role })
     redirectByRole(role ?? user?.role)
-  } catch (err) {
+  } catch (err: any) {
     error.value = err.response?.data?.message || 'Authentication failed'
   } finally {
     loading.value = false
@@ -59,58 +49,79 @@ const submit = async () => {
 </script>
 
 <template>
-  <AuthLayout title="E-Commerce" :subtitle="pageTitle">
-    <div v-if="error" class="mb-4 rounded bg-red-100 p-3 text-red-600">
-      {{ error }}
+  <div class="mx-auto max-w-md">
+    <!-- Card -->
+    <div class="border border-stone-200 bg-white p-8 sm:p-10">
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-stone-400">Ladies Collection</p>
+      <h1 class="mt-3 text-3xl text-stone-900" style="font-family: Garamond, 'Times New Roman', serif">
+        {{ isRegisterMode ? 'Create Account' : 'Welcome Back' }}
+      </h1>
+      <p class="mt-2 text-sm text-stone-500">
+        {{ isRegisterMode ? 'Join to save your orders and wishlist.' : 'Sign in to your account.' }}
+      </p>
+
+      <div v-if="error" class="mt-6 border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        {{ error }}
+      </div>
+
+      <form @submit.prevent="submit" class="mt-7 space-y-4">
+        <div v-if="isRegisterMode">
+          <label class="block text-sm font-medium text-stone-700">Full Name</label>
+          <input
+            v-model="name"
+            type="text"
+            required
+            placeholder="Your name"
+            class="mt-1 w-full border border-stone-300 px-3 py-2.5 text-sm focus:border-stone-600 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-stone-700">Email</label>
+          <input
+            v-model="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            class="mt-1 w-full border border-stone-300 px-3 py-2.5 text-sm focus:border-stone-600 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-stone-700">Password</label>
+          <input
+            v-model="password"
+            type="password"
+            required
+            placeholder="••••••••"
+            class="mt-1 w-full border border-stone-300 px-3 py-2.5 text-sm focus:border-stone-600 focus:outline-none"
+          />
+        </div>
+
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ loading ? 'Please wait…' : isRegisterMode ? 'Create Account' : 'Sign In' }}
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-sm text-stone-500">
+        {{ isRegisterMode ? 'Already have an account?' : "Don't have an account?" }}
+        <button
+          type="button"
+          @click="switchMode"
+          class="ml-1 font-semibold text-stone-900 underline decoration-amber-400 underline-offset-2 hover:text-amber-800"
+        >
+          {{ isRegisterMode ? 'Sign In' : 'Register' }}
+        </button>
+      </p>
     </div>
 
-    <div v-if="isRegisterMode" class="mb-4">
-      <label class="mb-2 block text-sm font-medium">Name</label>
-      <input
-        v-model="name"
-        type="text"
-        placeholder="Enter name"
-        class="w-full rounded-lg border p-3 focus:outline-none focus:ring-2 focus:ring-black"
-      >
-    </div>
-
-    <div class="mb-4">
-      <label class="mb-2 block text-sm font-medium">Email</label>
-      <input
-        v-model="email"
-        type="email"
-        placeholder="Enter email"
-        class="w-full rounded-lg border p-3 focus:outline-none focus:ring-2 focus:ring-black"
-      >
-    </div>
-
-    <div class="mb-6">
-      <label class="mb-2 block text-sm font-medium">Password</label>
-      <input
-        v-model="password"
-        type="password"
-        placeholder="Enter password"
-        class="w-full rounded-lg border p-3 focus:outline-none focus:ring-2 focus:ring-black"
-      >
-    </div>
-
-    <button
-      :disabled="loading"
-      @click="submit"
-      class="w-full rounded-lg bg-black py-3 text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-70"
-    >
-      {{ loading ? 'Please wait...' : isRegisterMode ? 'Create Account' : 'Login' }}
-    </button>
-
-    <p class="mt-5 text-center text-sm text-slate-600">
-      {{ isRegisterMode ? 'Already have an account?' : "Don't have an account?" }}
-      <button
-        type="button"
-        @click="switchMode"
-        class="ml-2 font-semibold text-slate-900 underline"
-      >
-        {{ isRegisterMode ? 'Login' : 'Register' }}
-      </button>
+    <!-- Decorative footer note -->
+    <p class="mt-4 text-center text-xs text-stone-400">
+      Your data is safe · Secured by Razorpay for payments
     </p>
-  </AuthLayout>
+  </div>
 </template>
