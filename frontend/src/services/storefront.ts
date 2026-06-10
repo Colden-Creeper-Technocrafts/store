@@ -7,14 +7,34 @@ export type StoreCategoryNode = {
   name: string
   slug: string
   description?: string | null
+  image?: string | null
   children: StoreCategoryNode[]
+}
+
+export type StorefrontCoupon = {
+  code: string
+  description: string | null
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  min_order_amount: number | null
+  starts_at: string | null
+  expires_at: string | null
 }
 
 const storeLayout = ref<StoreLayoutType>('ladies')
 const storeName = ref('Store')
+const storeLogo = ref<string | null>(null)
+const storeTagline = ref<string | null>(null)
+const storeBannerImage = ref<string | null>(null)
+const storeBannerTitle = ref<string | null>(null)
+const storeBannerText = ref<string | null>(null)
 const isLoaded = ref(false)
 const categories = ref<StoreCategoryNode[]>([])
 const categoriesLoaded = ref(false)
+const liveCoupons = ref<StorefrontCoupon[]>([])
+const upcomingCoupons = ref<StorefrontCoupon[]>([])
+const couponsLoaded = ref(false)
+
 export type StorefrontProduct = {
   id: number
   name: string
@@ -35,6 +55,7 @@ const productsLoaded = ref(false)
 let loadingPromise: Promise<void> | null = null
 let categoriesLoadingPromise: Promise<void> | null = null
 let productsLoadingPromise: Promise<void> | null = null
+let couponsLoadingPromise: Promise<void> | null = null
 
 const normalizeLayout = (layout: unknown): StoreLayoutType => {
   return String(layout ?? '').toLowerCase() === 'grocery' ? 'grocery' : 'ladies'
@@ -56,9 +77,16 @@ export const loadStorefront = async (force = false): Promise<void> => {
 
       storeLayout.value = normalizeLayout(store.layout)
       storeName.value = typeof store.name === 'string' && store.name.trim() ? store.name : 'Store'
+      storeLogo.value = typeof store.logo_url === 'string' && store.logo_url.trim() ? store.logo_url : null
+      storeTagline.value = typeof store.tagline === 'string' && store.tagline.trim() ? store.tagline : null
+      storeBannerImage.value = typeof store.banner_image === 'string' && store.banner_image.trim() ? store.banner_image : null
+      storeBannerTitle.value = typeof store.banner_title === 'string' && store.banner_title.trim() ? store.banner_title : null
+      storeBannerText.value = typeof store.banner_text === 'string' && store.banner_text.trim() ? store.banner_text : null
     } catch {
       storeLayout.value = 'ladies'
       storeName.value = 'Store'
+      storeLogo.value = null
+      storeTagline.value = null
     } finally {
       isLoaded.value = true
       loadingPromise = null
@@ -72,9 +100,17 @@ export const useStorefront = () => {
   return {
     storeLayout,
     storeName,
+    storeLogo,
+    storeTagline,
+    storeBannerImage,
+    storeBannerTitle,
+    storeBannerText,
     isLoaded,
     categories,
-    categoriesLoaded
+    categoriesLoaded,
+    liveCoupons,
+    upcomingCoupons,
+    couponsLoaded,
   }
 }
 
@@ -102,6 +138,32 @@ export const loadStoreCategories = async (force = false): Promise<void> => {
   })()
 
   return categoriesLoadingPromise
+}
+
+export const loadStoreCoupons = async (force = false): Promise<void> => {
+  if (!force && couponsLoaded.value) {
+    return
+  }
+
+  if (couponsLoadingPromise) {
+    return couponsLoadingPromise
+  }
+
+  couponsLoadingPromise = (async () => {
+    try {
+      const response = await api.get('/storefront/coupons')
+      liveCoupons.value = Array.isArray(response?.data?.live) ? response.data.live : []
+      upcomingCoupons.value = Array.isArray(response?.data?.upcoming) ? response.data.upcoming : []
+    } catch {
+      liveCoupons.value = []
+      upcomingCoupons.value = []
+    } finally {
+      couponsLoaded.value = true
+      couponsLoadingPromise = null
+    }
+  })()
+
+  return couponsLoadingPromise
 }
 
 export const productsStore = () => ({

@@ -5,6 +5,7 @@ export type AdminCategory = {
   name: string
   slug: string
   description?: string | null
+  image?: string | null
   parent_category_id?: number | null
   sort_order: number
   is_active: boolean
@@ -28,4 +29,13 @@ export const updateAdminCategory = async (id: number, payload: Partial<AdminCate
 
 export const deleteAdminCategory = async (id: number): Promise<void> => {
   await api.delete(`/categories/${id}`)
+}
+
+export const uploadCategoryImage = async (id: number, file: File): Promise<string> => {
+  const formData = new FormData()
+  formData.append('image', file)
+  const response = await api.post(`/categories/${id}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data.image
 }

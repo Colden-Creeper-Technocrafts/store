@@ -7,6 +7,7 @@ import {
   deleteAdminCategory,
   loadAdminCategories,
   updateAdminCategory,
+  uploadCategoryImage,
 } from '../services/adminCategories'
 
 const categories = ref<AdminCategory[]>([])
@@ -20,10 +21,33 @@ const form = reactive({
   name: '',
   slug: '',
   description: '',
+  image: '',
   parent_category_id: null as number | null,
   sort_order: 0,
   is_active: true,
 })
+
+// Image upload state
+const imageFileInput = ref<HTMLInputElement | null>(null)
+const imageFile      = ref<File | null>(null)
+const imagePreview   = ref<string | null>(null)
+const imageCleared   = ref(false)
+const displayImage   = computed(() => imagePreview.value || form.image || null)
+
+function onImageSelect(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0] ?? null
+  imageFile.value    = file
+  imageCleared.value = false
+  if (file) imagePreview.value = URL.createObjectURL(file)
+}
+
+function removeImage() {
+  imageFile.value    = null
+  imagePreview.value = null
+  imageCleared.value = true
+  form.image         = ''
+  if (imageFileInput.value) imageFileInput.value.value = ''
+}
 
 const loadCategories = async (): Promise<void> => {
   isLoading.value = true
@@ -77,11 +101,16 @@ const resetForm = (): void => {
   form.name = ''
   form.slug = ''
   form.description = ''
+  form.image = ''
   form.parent_category_id = null
   form.sort_order = 0
   form.is_active = true
   successMessage.value = ''
   errorMessage.value = ''
+  imageFile.value    = null
+  imagePreview.value = null
+  imageCleared.value = false
+  if (imageFileInput.value) imageFileInput.value.value = ''
 }
 
 const fillForm = (category: AdminCategory): void => {
@@ -89,11 +118,16 @@ const fillForm = (category: AdminCategory): void => {
   form.name = category.name
   form.slug = category.slug
   form.description = category.description ?? ''
+  form.image = category.image ?? ''
   form.parent_category_id = category.parent_category_id ?? null
   form.sort_order = category.sort_order ?? 0
   form.is_active = category.is_active
   successMessage.value = ''
   errorMessage.value = ''
+  imageFile.value    = null
+  imagePreview.value = null
+  imageCleared.value = false
+  if (imageFileInput.value) imageFileInput.value.value = ''
 }
 
 const saveCategory = async (): Promise<void> => {
@@ -102,6 +136,8 @@ const saveCategory = async (): Promise<void> => {
   successMessage.value = ''
 
   try {
+    const cleared = imageCleared.value
+
     const payload = {
       name: form.name,
       slug: form.slug,
@@ -109,14 +145,24 @@ const saveCategory = async (): Promise<void> => {
       parent_category_id: form.parent_category_id,
       sort_order: form.sort_order,
       is_active: form.is_active,
+      ...(cleared ? { image: null } : {}),
     }
 
+    let savedId: number
+
     if (editingCategoryId.value) {
-      await updateAdminCategory(editingCategoryId.value, payload)
+      const updated = await updateAdminCategory(editingCategoryId.value, payload)
+      savedId = updated.id
       successMessage.value = 'Category updated successfully.'
     } else {
-      await createAdminCategory(payload)
+      const created = await createAdminCategory(payload)
+      savedId = created.id
       successMessage.value = 'Category created successfully.'
+    }
+
+    // Upload image after save so we always have the category ID
+    if (imageFile.value) {
+      await uploadCategoryImage(savedId, imageFile.value)
     }
 
     await loadCategories()
@@ -283,6 +329,49 @@ onMounted(() => {
                 rows="3"
                 class="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-slate-400"
               ></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Category Image</label>
+
+              <input
+                ref="imageFileInput"
+                type="file"
+                accept="image/jpg,image/jpeg,image/png,image/gif,image/webp"
+                class="hidden"
+                @change="onImageSelect"
+              />
+
+              <div
+                class="relative mt-2 flex items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"
+                :class="displayImage ? 'border-solid border-slate-300 bg-white' : ''"
+                style="min-height: 200px;"
+              >
+                <img
+                  v-if="displayImage"
+                  :src="displayImage"
+                  alt="Category image preview"
+                  class="absolute inset-0 h-full w-full object-cover"
+                />
+                <p v-else class="text-xs text-slate-400">No image selected</p>
+
+                <button
+                  v-if="displayImage"
+                  type="button"
+                  @click="removeImage"
+                  class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200"
+                  title="Remove image"
+                >✕</button>
+              </div>
+
+              <button
+                type="button"
+                @click="imageFileInput?.click()"
+                class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                {{ displayImage ? 'Replace Image' : 'Upload Image' }}
+              </button>
+              <p class="mt-1 px-1 text-xs text-slate-400">JPG, PNG, GIF or WebP · Max 3 MB</p>
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2">

@@ -4,6 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int         $id
+ * @property string      $store_name
+ * @property string|null $business_type
+ * @property string|null $store_email
+ * @property string|null $store_phone
+ * @property string|null $store_description
+ * @property string|null $logo_url
+ * @property string|null $tagline
+ * @property string|null $banner_image
+ * @property string|null $banner_title
+ * @property string|null $banner_text
+ * @property string|null $currency
+ * @property array|null  $features
+ * @property array|null  $notification_config
+ * @property string|null $layout
+ * @property bool        $is_active
+ */
 class StoreSetting extends Model
 {
     protected $fillable = [
@@ -12,6 +30,11 @@ class StoreSetting extends Model
         'store_email',
         'store_phone',
         'store_description',
+        'logo_url',
+        'tagline',
+        'banner_image',
+        'banner_title',
+        'banner_text',
         'currency',
         'features',
         'notification_config',

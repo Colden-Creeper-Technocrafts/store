@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useStorefront } from './services/storefront'
@@ -10,7 +10,11 @@ import AdminLayout from './layouts/AdminLayout.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { storeLayout } = useStorefront()
+const { storeLayout, storeName } = useStorefront()
+
+watch(storeName, (name) => {
+  if (name && name !== 'Store') document.title = name
+}, { immediate: true })
 
 const isLoggedIn = computed(() => !!authStore.token)
 const isStorePage = computed(() => route.meta.layout === 'store')
