@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCartStore } from '../stores/cart'
@@ -8,7 +8,7 @@ import { useStorefront } from '../services/storefront'
 const router = useRouter()
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const { storeName } = useStorefront()
+const { storeName, storeLogo, storeTagline } = useStorefront()
 
 const normalizedRole = computed(() => authStore.role?.toLowerCase() ?? '')
 const isLoggedIn = computed(() => !!authStore.token)
@@ -19,6 +19,8 @@ const displayName = computed(() => authStore.user?.name || 'Customer')
 const mobileOpen = ref(false)
 const toggleMobile = () => { mobileOpen.value = !mobileOpen.value }
 const closeMobile = () => { mobileOpen.value = false }
+
+const currentYear = new Date().getFullYear()
 
 const logout = () => {
   authStore.logout()
@@ -31,7 +33,6 @@ onMounted(() => {
   if (isCustomer.value) cartStore.load()
 })
 
-import { watch } from 'vue'
 watch(isCustomer, (val) => {
   if (val) cartStore.load()
   else cartStore.reset()
@@ -39,90 +40,104 @@ watch(isCustomer, (val) => {
 </script>
 
 <template>
-  <div class="store-shell min-h-screen text-stone-900">
-    <!-- Announcement bar -->
-    <div class="bg-stone-900 px-4 py-2 text-center text-[11px] font-medium tracking-[0.16em] text-amber-200 uppercase sm:text-xs">
-      Complimentary Gift Packaging On Every Accessories Order
-    </div>
-
+  <div class="store-shell flex min-h-screen flex-col text-stone-900">
     <!-- Header -->
-    <header class="sticky top-0 z-50 border-b border-amber-100/70 bg-white/90 backdrop-blur-xl">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+    <header class="sticky top-0 z-50 border-b border-stone-100 bg-white/95 shadow-sm backdrop-blur-xl">
+      <div class="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3 sm:px-6">
 
         <!-- Brand -->
-        <div class="flex items-center gap-4">
-          <router-link to="/" class="brand-mark text-xl tracking-[0.08em] text-stone-900 sm:text-2xl">
-            {{ storeName }}
+        <div class="flex items-center">
+          <router-link to="/" class="flex items-center">
+            <img
+              v-if="storeLogo"
+              :src="storeLogo"
+              :alt="storeName"
+              class="h-14 w-auto max-w-[220px] object-contain"
+            />
+            <span v-else class="brand-mark text-xl tracking-[0.08em] text-stone-900 sm:text-2xl">
+              {{ storeName }}
+            </span>
           </router-link>
-          <span class="hidden border border-amber-200/80 bg-amber-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-700 sm:inline-block">
-            Since 1996
-          </span>
+        </div>
+
+        <!-- Tagline (center) — elegant rule treatment -->
+        <div class="flex justify-center">
+          <div v-if="storeTagline" class="flex items-center gap-3">
+            <span class="h-px w-8 bg-gradient-to-r from-transparent to-amber-300"></span>
+            <span class="whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.22em] text-stone-400">
+              {{ storeTagline }}
+            </span>
+            <span class="h-px w-8 bg-gradient-to-l from-transparent to-amber-300"></span>
+          </div>
         </div>
 
         <!-- Desktop nav -->
-        <div class="hidden items-center gap-3 lg:flex">
+        <div class="hidden items-center justify-end gap-1 lg:flex">
           <router-link
             to="/store"
-            class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50"
+            class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700"
           >
             Shop
           </router-link>
 
           <router-link
             to="/cart"
-            class="relative border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50"
+            class="relative rounded-md px-3 py-2 text-stone-500 transition hover:bg-amber-50 hover:text-amber-700"
             aria-label="Cart"
           >
-            &#128722;
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
             <span
               v-if="cartStore.itemCount > 0"
-              class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-[10px] font-bold text-white"
+              class="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white"
             >{{ cartStore.itemCount }}</span>
           </router-link>
 
           <template v-if="isCustomer">
-            <span class="text-sm font-medium text-stone-700">Hi, {{ displayName }}</span>
-            <router-link to="/profile" class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50">Profile</router-link>
-            <button type="button" @click="logout" class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50">Logout</button>
+            <span class="ml-1 text-xs text-stone-400">Hi, {{ displayName }}</span>
+            <router-link to="/profile" class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700">Profile</router-link>
+            <button type="button" @click="logout" class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700">Logout</button>
           </template>
 
           <template v-else-if="!isLoggedIn">
-            <router-link to="/login" class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50">Login</router-link>
-            <router-link to="/register" class="bg-stone-900 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_16px_rgba(28,25,23,0.24)] transition hover:bg-stone-700">Register</router-link>
+            <router-link to="/login" class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700">Login</router-link>
+            <router-link to="/register" class="ml-1 rounded-full bg-stone-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-stone-700">Register</router-link>
           </template>
 
           <template v-else-if="isAdmin">
-            <router-link to="/backstore/dashboard" class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50">Dashboard</router-link>
-            <button type="button" @click="logout" class="border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-900 transition hover:border-amber-400 hover:bg-amber-50">Logout</button>
+            <router-link to="/backstore/dashboard" class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700">Dashboard</router-link>
+            <button type="button" @click="logout" class="rounded-md px-4 py-2 text-sm font-medium text-stone-600 transition hover:bg-amber-50 hover:text-amber-700">Logout</button>
           </template>
         </div>
 
         <!-- Mobile: cart + hamburger -->
-        <div class="flex items-center gap-2 lg:hidden">
+        <div class="flex items-center justify-end gap-1 lg:hidden">
           <router-link
             to="/cart"
-            class="relative border border-stone-300 bg-white p-2 text-stone-900 transition hover:bg-amber-50"
+            class="relative rounded-md p-2 text-stone-500 transition hover:bg-amber-50 hover:text-amber-700"
             aria-label="Cart"
           >
-            &#128722;
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
             <span
               v-if="cartStore.itemCount > 0"
-              class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-[10px] font-bold text-white"
+              class="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white"
             >{{ cartStore.itemCount }}</span>
           </router-link>
 
           <button
             type="button"
             @click="toggleMobile"
-            class="border border-stone-300 bg-white p-2 text-stone-900 transition hover:bg-amber-50"
+            class="rounded-md p-2 text-stone-500 transition hover:bg-amber-50 hover:text-amber-700"
             :aria-expanded="mobileOpen"
             aria-label="Menu"
           >
-            <!-- Hamburger / X icon -->
-            <svg v-if="!mobileOpen" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg v-if="!mobileOpen" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
-            <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
@@ -164,12 +179,20 @@ watch(isCustomer, (val) => {
       </div>
     </header>
 
-    <main class="relative px-4 py-10 sm:px-6 lg:px-8">
-      <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-100/40 to-transparent"></div>
-      <div class="mx-auto max-w-7xl">
-        <slot />
+    <main class="relative flex-1 overflow-x-hidden">
+      <div class="px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+          <slot />
+        </div>
       </div>
     </main>
+
+    <!-- Sticky footer copyright -->
+    <footer class="sticky bottom-0 z-40 border-t border-amber-100/70 bg-white/90 backdrop-blur-xl">
+      <div class="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-stone-500 sm:px-6">
+        &copy; {{ currentYear }} {{ storeName }}. All rights reserved.
+      </div>
+    </footer>
   </div>
 </template>
 

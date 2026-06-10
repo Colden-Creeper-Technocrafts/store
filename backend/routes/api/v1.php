@@ -22,6 +22,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/backstore/login', [AuthController::class, 'backstoreLogin']);
 Route::get('/storefront', [StorefrontController::class, 'show']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
+Route::get('/storefront/coupons', [StorefrontController::class, 'coupons']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::get('/storefront/products/{slug}', [StorefrontController::class, 'productDetail']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
@@ -38,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile']);
 
     Route::apiResource('/categories', CategoryController::class);
+    Route::post('/categories/{id}/image', [CategoryController::class, 'uploadImage']);
     Route::apiResource('/products', \App\Http\Controllers\Api\V1\ProductController::class);
     Route::patch('/admin/products/{id}/stock', [\App\Http\Controllers\Api\V1\ProductController::class, 'adjustStock']);
     Route::get('/products/images/defaults', [\App\Http\Controllers\Api\V1\ProductImageController::class, 'defaults']);
@@ -65,8 +67,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/analytics/summary', [AdminAnalyticsController::class, 'summary']);
 
     // Admin settings
-    Route::get('/admin/settings', [AdminSettingsController::class, 'show']);
-    Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
+    Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
+    Route::put('/admin/settings/{id}', [AdminSettingsController::class, 'update']);
+    Route::post('/admin/settings/{id}/logo', [AdminSettingsController::class, 'uploadLogo']);
+    Route::post('/admin/settings/{id}/banner-image', [AdminSettingsController::class, 'uploadBannerImage']);
 
     // Admin order management
     Route::prefix('admin/orders')->group(function () {

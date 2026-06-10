@@ -68,6 +68,10 @@ const routes = [
     meta: { layout: 'store' }
   },
   {
+    path: '/backstore',
+    redirect: '/backstore/dashboard'
+  },
+  {
     path: '/backstore/dashboard',
     component: AdminDashboardPage,
     meta: { requiresAdmin: true }
@@ -125,6 +129,10 @@ const routes = [
     path: '/backstore/notifications',
     component: AdminNotificationsPage,
     meta: { requiresAdmin: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 

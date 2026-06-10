@@ -36,6 +36,7 @@ class UpdateCategoryRequest extends FormRequest
                 'nullable',
                 Rule::exists('categories', 'id')->where('store_setting_id', $storeId),
             ],
+            'image' => ['nullable', 'string', 'max:2048'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
         ];
