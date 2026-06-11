@@ -6,6 +6,7 @@ use App\Interfaces\CartRepositoryInterface;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CartRepository implements CartRepositoryInterface
@@ -58,7 +59,14 @@ class CartRepository implements CartRepositoryInterface
 
     private function assertStock(Product $product, int $requested): void
     {
-        $stock = (int) $product->quantity;
+        $variantQty = DB::table('product_variants')
+            ->where('product_id', $product->id)
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->value('quantity');
+
+        $stock = (int) ($variantQty ?? $product->quantity);
+
         if ($stock <= 0) {
             throw ValidationException::withMessages([
                 'quantity' => ["\"{$product->name}\" is out of stock."],

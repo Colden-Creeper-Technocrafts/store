@@ -6,6 +6,7 @@ import {
   loadStoreProducts,
   loadStoreCoupons,
   productsStore,
+  formatPrice,
 } from '../../services/storefront'
 
 const {
@@ -23,7 +24,7 @@ const newArrivals = computed(() =>
 )
 
 const formatDiscount = (type: string, value: number) =>
-  type === 'percentage' ? `${value}% OFF` : `₹${value} OFF`
+  type === 'percentage' ? `${value}% OFF` : `${formatPrice(value)} OFF`
 
 const formatDate = (iso: string | null) => {
   if (!iso) return null
@@ -171,10 +172,10 @@ onMounted(async () => {
             <p v-if="product.short_description" class="mt-1 text-sm text-stone-600">{{ product.short_description }}</p>
             <div class="mt-5 flex items-center justify-between">
               <p class="text-2xl text-stone-900">
-                {{ product.sale_price != null ? `₹${product.sale_price}` : product.price != null ? `₹${product.price}` : '—' }}
+                {{ product.sale_price != null ? formatPrice(product.sale_price) : product.price != null ? formatPrice(product.price) : '—' }}
               </p>
               <router-link
-                :to="`/store/products/${product.slug ?? product.id}`"
+                :to="`/product/${product.slug ?? product.id}`"
                 class="rounded-full border border-stone-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-stone-700 transition hover:border-stone-500"
               >
                 View
@@ -242,7 +243,7 @@ onMounted(async () => {
                 </span>
               </div>
               <div class="mt-3 flex flex-wrap gap-3 text-xs text-stone-400">
-                <span v-if="coupon.min_order_amount">Min order ₹{{ coupon.min_order_amount }}</span>
+                <span v-if="coupon.min_order_amount">Min order {{ formatPrice(coupon.min_order_amount) }}</span>
                 <span v-if="coupon.expires_at">Expires {{ formatDate(coupon.expires_at) }}</span>
               </div>
             </div>
@@ -269,7 +270,7 @@ onMounted(async () => {
               </div>
               <div class="mt-3 flex flex-wrap gap-3 text-xs text-stone-400">
                 <span v-if="coupon.starts_at">Starts {{ formatDate(coupon.starts_at) }}</span>
-                <span v-if="coupon.min_order_amount">Min order ₹{{ coupon.min_order_amount }}</span>
+                <span v-if="coupon.min_order_amount">Min order {{ formatPrice(coupon.min_order_amount) }}</span>
               </div>
             </div>
           </div>

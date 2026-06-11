@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useCartStore } from '../../stores/cart'
+import { formatPrice } from '../../services/storefront'
 
 const cartStore = useCartStore()
 
@@ -74,7 +75,7 @@ const increment = async (itemId: number, qty: number) => {
                   >+</button>
                 </div>
                 <div class="flex items-center gap-4">
-                  <span class="font-semibold text-stone-900">${{ item.line_total.toFixed(2) }}</span>
+                  <span class="font-semibold text-stone-900">{{ formatPrice(item.line_total) }}</span>
                   <button
                     @click="cartStore.remove(item.id)"
                     class="text-xs text-rose-500 hover:underline"
@@ -90,11 +91,11 @@ const increment = async (itemId: number, qty: number) => {
           <p class="font-semibold text-stone-900 text-lg">Order Summary</p>
           <div class="flex justify-between text-sm text-stone-600">
             <span>Subtotal ({{ cartStore.itemCount }} item{{ cartStore.itemCount !== 1 ? 's' : '' }})</span>
-            <span>${{ cartStore.total.toFixed(2) }}</span>
+            <span>{{ formatPrice(cartStore.total) }}</span>
           </div>
           <div class="flex justify-between border-t border-stone-100 pt-4 font-semibold text-stone-900">
             <span>Total</span>
-            <span>${{ cartStore.total.toFixed(2) }}</span>
+            <span>{{ formatPrice(cartStore.total) }}</span>
           </div>
           <router-link
             to="/checkout"
