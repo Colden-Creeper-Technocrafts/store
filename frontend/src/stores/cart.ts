@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { addToCart, clearCart, fetchCart, removeCartItem, updateCartItem } from '../services/cart'
 import type { Cart, CartItem, CartProduct } from '../services/cart'
-import { productsStore } from '../services/storefront'
+import { productsStore, loadStoreProducts } from '../services/storefront'
 import { useAuthStore } from './auth'
 
 const LOCAL_CART_KEY = 'guest_cart'
@@ -62,16 +62,16 @@ export const useCartStore = defineStore('cart', () => {
   )
 
   const load = async () => {
+    error.value = null
     if (!authStore.isCustomer) {
-      // Hydrate stock from already-loaded storefront product data (no extra API call)
+      // Always fetch fresh product data to get up-to-date stock from variant table
+      await loadStoreProducts()
       const { products } = productsStore()
-      if (products.value.length > 0) {
-        guestItems.value.forEach(item => {
-          const fresh = products.value.find(p => p.id === item.product_id)
-          if (fresh) item.product.stock = fresh.quantity ?? null
-        })
-        saveLocal()
-      }
+      guestItems.value.forEach(item => {
+        const fresh = products.value.find(p => p.id === item.product_id)
+        if (fresh) item.product.stock = fresh.quantity ?? null
+      })
+      saveLocal()
       loaded.value = true
       return
     }

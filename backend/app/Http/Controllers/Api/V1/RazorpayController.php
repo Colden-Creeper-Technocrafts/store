@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\OtpVerification;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Razorpay\Api\Api;
@@ -98,10 +100,25 @@ class RazorpayController extends Controller
         }
 
         $order->update([
+            'status'          => 'confirmed',
             'payment_status'  => 'paid',
             'payment_gateway' => 'razorpay',
             'payment_id'      => $data['razorpay_payment_id'],
         ]);
+
+        // Link guest-OTP order to its registered user now that payment is confirmed
+        if (!$order->user_id) {
+            $otpRecord = OtpVerification::where('order_id', $order->id)
+                ->whereNotNull('verified_at')
+                ->latest('verified_at')
+                ->first();
+            if ($otpRecord) {
+                $user = User::where('phone', $otpRecord->phone)->first();
+                if ($user) {
+                    $order->update(['user_id' => $user->id]);
+                }
+            }
+        }
 
         return response()->json(['success' => true, 'order_id' => $order->id]);
     }
@@ -136,6 +153,7 @@ class RazorpayController extends Controller
                 $order = Order::where('razorpay_order_id', $razorpayOrderId)->first();
                 if ($order && $order->payment_status !== 'paid') {
                     $order->update([
+                        'status'          => 'confirmed',
                         'payment_status'  => 'paid',
                         'payment_gateway' => 'razorpay',
                         'payment_id'      => $paymentId,

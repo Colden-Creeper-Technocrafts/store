@@ -11,14 +11,14 @@ class StorefrontRepository implements StorefrontRepositoryInterface
     public function resolveActiveStore(): ?object
     {
         $store = DB::table('store_settings')
-            ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'is_active'])
+            ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
             ->where('is_active', true)
             ->orderBy('id')
             ->first();
 
         if (!$store) {
             $store = DB::table('store_settings')
-                ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'is_active'])
+                ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
                 ->orderByDesc('is_active')
                 ->orderBy('id')
                 ->first();
@@ -68,15 +68,20 @@ class StorefrontRepository implements StorefrontRepositoryInterface
                 $join->on('products.category_id', '=', 'categories.id')
                     ->where('categories.store_setting_id', $store->id);
             })
+            ->leftJoin('product_variants as pv', function ($join) {
+                $join->on('pv.id', '=', DB::raw(
+                    '(SELECT id FROM product_variants WHERE product_id = products.id ORDER BY is_default DESC, id ASC LIMIT 1)'
+                ));
+            })
             ->select([
                 'products.id',
                 'products.name',
                 'products.slug',
                 'products.sku',
                 'products.short_description',
-                'products.price',
-                'products.sale_price',
-                'products.quantity',
+                DB::raw('COALESCE(pv.price, products.price) as price'),
+                DB::raw('COALESCE(pv.sale_price, products.sale_price) as sale_price'),
+                DB::raw('COALESCE(pv.quantity, products.quantity) as quantity'),
                 'products.weight',
                 'products.category_id',
                 'categories.name as category_name',
@@ -108,6 +113,11 @@ class StorefrontRepository implements StorefrontRepositoryInterface
                 $join->on('products.category_id', '=', 'categories.id')
                     ->where('categories.store_setting_id', $store->id);
             })
+            ->leftJoin('product_variants as pv', function ($join) {
+                $join->on('pv.id', '=', DB::raw(
+                    '(SELECT id FROM product_variants WHERE product_id = products.id ORDER BY is_default DESC, id ASC LIMIT 1)'
+                ));
+            })
             ->select([
                 'products.id',
                 'products.name',
@@ -115,23 +125,36 @@ class StorefrontRepository implements StorefrontRepositoryInterface
                 'products.sku',
                 'products.short_description',
                 'products.description',
-                'products.price',
-                'products.sale_price',
-                'products.quantity',
                 'products.weight',
                 'products.category_id',
                 'categories.name as category_name',
                 'product_images.image',
+                DB::raw('COALESCE(pv.price, products.price) as price'),
+                DB::raw('COALESCE(pv.sale_price, products.sale_price) as sale_price'),
+                DB::raw('COALESCE(pv.quantity, products.quantity) as quantity'),
             ])
             ->where('products.status', true)
             ->where('products.slug', $slug)
             ->first();
 
-        if ($product) {
-            $product->image = $product->image
-                ? asset('storage/' . ltrim($product->image, '/'))
-                : asset('images/product-placeholder.svg');
+        if (!$product) {
+            return null;
         }
+
+        $product->image = $product->image
+            ? asset('storage/' . ltrim($product->image, '/'))
+            : asset('images/product-placeholder.svg');
+
+        // Attach all variants for selector on the detail page
+        $product->variants = DB::table('product_variants')
+            ->where('product_id', $product->id)
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->get(['id', 'sku', 'price', 'sale_price', 'quantity', 'options', 'is_default'])
+            ->map(function (object $v): object {
+                $v->options = $v->options ? json_decode($v->options, true) : null;
+                return $v;
+            });
 
         return $product;
     }

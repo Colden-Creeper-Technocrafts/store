@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import CategoryTreeSidebar from '../../components/store/CategoryTreeSidebar.vue'
-import { loadStoreCategories, loadStoreProducts, productsStore, useStorefront } from '../../services/storefront'
+import { loadStoreCategories, loadStoreProducts, productsStore, useStorefront, formatPrice } from '../../services/storefront'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 import type { StorefrontProduct } from '../../services/storefront'
@@ -171,10 +171,10 @@ onMounted(async () => {
               <div class="mt-4 flex items-center justify-between gap-2">
                 <div class="flex items-baseline gap-2">
                   <span class="text-lg font-semibold text-stone-900">
-                    ₹{{ Number(product.sale_price ?? product.price ?? 0).toFixed(2) }}
+                    {{ formatPrice(product.sale_price ?? product.price) }}
                   </span>
                   <span v-if="product.sale_price != null" class="text-sm text-stone-400 line-through">
-                    ₹{{ Number(product.price ?? 0).toFixed(2) }}
+                    {{ formatPrice(product.price) }}
                   </span>
                 </div>
                 <button

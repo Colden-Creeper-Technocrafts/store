@@ -28,19 +28,23 @@ class ProductVariantRepository implements ProductVariantRepositoryInterface
     public function create(Product $product, array $payload): ProductVariant
     {
         return DB::transaction(function () use ($product, $payload) {
-            if (!empty($payload['is_default'])) {
+            // First variant for a product is always default regardless of what the form sends
+            $isFirstVariant = $product->variants()->doesntExist();
+            $isDefault = $isFirstVariant || !empty($payload['is_default']);
+
+            if ($isDefault) {
                 $product->variants()->where('is_default', true)->update(['is_default' => false]);
             }
 
             $variant = $product->variants()->create([
-                'sku' => $payload['sku'] ?? null,
-                'price' => $payload['price'] ?? 0,
+                'sku'        => $payload['sku'] ?? null,
+                'price'      => $payload['price'] ?? 0,
                 'sale_price' => $payload['sale_price'] ?? null,
-                'quantity' => $payload['quantity'] ?? 0,
-                'weight' => $payload['weight'] ?? null,
-                'status' => $payload['status'] ?? true,
-                'options' => $payload['options'] ?? null,
-                'is_default' => $payload['is_default'] ?? false,
+                'quantity'   => $payload['quantity'] ?? 0,
+                'weight'     => $payload['weight'] ?? null,
+                'status'     => $payload['status'] ?? true,
+                'options'    => $payload['options'] ?? null,
+                'is_default' => $isDefault,
             ]);
 
             if ($variant->is_default) {

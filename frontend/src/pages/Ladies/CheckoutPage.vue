@@ -13,6 +13,8 @@ import {
 } from '../../services/payment'
 import { validateCoupon } from '../../services/coupon'
 import type { CouponValidation } from '../../services/coupon'
+import { sendOrderOtp, verifyOrderOtp } from '../../services/otp'
+import { formatPrice } from '../../services/storefront'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -21,6 +23,72 @@ const cartStore = useCartStore()
 const submitting = ref(false)
 const paymentStep = ref<'idle' | 'creating' | 'paying' | 'verifying'>('idle')
 const errorMessage = ref('')
+
+// Post-payment success state (guest checkout)
+const orderPlaced = ref(false)
+const isNewUser = ref(false)
+const placedOrderId = ref<number | null>(null)
+
+// OTP verification state (guest orders only)
+const otpModal = ref(false)
+const otpPhone = ref('')
+const otpEmail = ref('')
+const otpOrderId = ref(0)
+const otpCode = ref('')
+const otpSending = ref(false)
+const otpVerifying = ref(false)
+const otpError = ref('')
+const otpSuccess = ref('')
+
+// Holds the pending order so submitOtp can proceed to payment after OTP
+let pendingOrder: { id: number } | null = null
+
+const resendOtp = async () => {
+  otpSending.value = true; otpError.value = ''
+  try { await sendOrderOtp(otpPhone.value, otpEmail.value, otpOrderId.value) }
+  catch { otpError.value = 'Failed to resend OTP.' }
+  finally { otpSending.value = false }
+}
+
+const submitOtp = async () => {
+  if (otpCode.value.length !== 6) return
+  otpVerifying.value = true; otpError.value = ''
+  try {
+    // Verify OTP — registers account in background, no auto-login
+    const result = await verifyOrderOtp(otpPhone.value, otpCode.value)
+    otpModal.value = false
+
+    if (!pendingOrder) return
+    const order = pendingOrder
+    submitting.value = true
+    paymentStep.value = 'paying'
+    const rzpOptions = await createRazorpayOrder(order.id)
+    const payment = await openRazorpayModal(rzpOptions)
+
+    paymentStep.value = 'verifying'
+    await verifyRazorpayPayment({
+      order_id: order.id,
+      razorpay_payment_id: payment.razorpay_payment_id,
+      razorpay_order_id: payment.razorpay_order_id,
+      razorpay_signature: payment.razorpay_signature,
+    })
+
+    await cartStore.clear()
+    placedOrderId.value = order.id
+    isNewUser.value = result.is_new_user
+    orderPlaced.value = true
+  } catch (e: any) {
+    if (e instanceof PaymentCancelledError) {
+      otpError.value = 'Payment cancelled. Your order is saved — you can retry from your orders page after logging in.'
+    } else {
+      otpError.value = e?.response?.data?.message ?? 'Something went wrong.'
+    }
+  } finally {
+    otpVerifying.value = false
+    submitting.value = false
+    paymentStep.value = 'idle'
+  }
+}
 
 const couponCode = ref('')
 const couponValidating = ref(false)
@@ -110,7 +178,7 @@ const submit = async () => {
       shipping_method_id: selectedRate.value?.method_id ?? null,
     }
 
-    // Step 1 — create order in our DB (pending / unpaid)
+    // Step 1 — create order in DB (pending / unpaid)
     paymentStep.value = 'creating'
     let order
     if (authStore.isCustomer) {
@@ -119,12 +187,22 @@ const submit = async () => {
       order = await placeGuestOrder({ ...shippingPayload, items: cartStore.guestOrderItems })
     }
 
-    // Step 2 — create Razorpay order + open modal
+    // Step 2 — for guest orders with phone: verify mobile BEFORE payment
+    if (!authStore.isCustomer && form.shipping_phone) {
+      pendingOrder      = order
+      otpPhone.value    = form.shipping_phone
+      otpEmail.value    = form.shipping_email
+      otpOrderId.value  = order.id
+      await sendOrderOtp(form.shipping_phone, form.shipping_email, order.id)
+      otpModal.value = true
+      return  // payment continues inside submitOtp() after OTP verified
+    }
+
+    // Step 3 — authenticated users go straight to payment
     paymentStep.value = 'paying'
     const rzpOptions = await createRazorpayOrder(order.id)
     const payment = await openRazorpayModal(rzpOptions)
 
-    // Step 3 — verify signature server-side
     paymentStep.value = 'verifying'
     await verifyRazorpayPayment({
       order_id: order.id,
@@ -133,12 +211,7 @@ const submit = async () => {
       razorpay_signature: payment.razorpay_signature,
     })
 
-    // Success
-    if (authStore.isCustomer) {
-      await cartStore.load()
-    } else {
-      await cartStore.clear()
-    }
+    await cartStore.load()
     router.push({ path: '/orders', query: { placed: String(order.id) } })
   } catch (e: any) {
     if (e instanceof PaymentCancelledError) {
@@ -240,7 +313,7 @@ const submit = async () => {
                   <span v-if="rate.delivery_estimate" class="text-stone-400 ml-1">({{ rate.delivery_estimate }})</span>
                 </span>
                 <span class="text-sm font-semibold text-stone-900">
-                  {{ rate.is_free ? 'FREE' : `₹${rate.cost.toFixed(2)}` }}
+                  {{ rate.is_free ? 'FREE' : formatPrice(rate.cost) }}
                 </span>
               </label>
             </div>
@@ -254,7 +327,7 @@ const submit = async () => {
               class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500"></textarea>
           </div>
 
-          <button type="submit" :disabled="submitting || cartStore.isEmpty"
+          <button type="submit" :disabled="submitting"
             class="w-full bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:bg-stone-400 flex items-center justify-center gap-2">
             <svg v-if="submitting" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -297,29 +370,115 @@ const submit = async () => {
           <p class="font-semibold text-stone-900">Order Summary</p>
           <div v-for="item in cartStore.items" :key="item.id" class="flex justify-between text-sm text-stone-600">
             <span class="truncate pr-2">{{ item.product.name }} × {{ item.quantity }}</span>
-            <span class="flex-shrink-0">₹{{ item.line_total.toFixed(2) }}</span>
+            <span class="flex-shrink-0">{{ formatPrice(item.line_total) }}</span>
           </div>
           <div class="border-t border-stone-100 pt-3 space-y-2">
             <div class="flex justify-between text-sm text-stone-600">
               <span>Subtotal</span>
-              <span>₹{{ cartStore.total.toFixed(2) }}</span>
+              <span>{{ formatPrice(cartStore.total) }}</span>
             </div>
             <div v-if="appliedCoupon" class="flex justify-between text-sm text-stone-600">
               <span>Discount ({{ appliedCoupon.code }})</span>
-              <span class="text-stone-800">−₹{{ appliedCoupon.discount_amount.toFixed(2) }}</span>
+              <span class="text-stone-800">−{{ formatPrice(appliedCoupon.discount_amount) }}</span>
             </div>
             <div class="flex justify-between text-sm text-stone-600">
               <span>Shipping</span>
-              <span v-if="selectedRate">{{ selectedRate.is_free ? 'FREE' : `₹${selectedRate.cost.toFixed(2)}` }}</span>
+              <span v-if="selectedRate">{{ selectedRate.is_free ? 'FREE' : formatPrice(selectedRate.cost) }}</span>
               <span v-else class="text-stone-400">—</span>
             </div>
             <div class="flex justify-between pt-1 font-semibold text-stone-900">
               <span>Total</span>
-              <span>₹{{ finalTotal().toFixed(2) }}</span>
+              <span>{{ formatPrice(finalTotal()) }}</span>
             </div>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- Order Success Modal (guest OTP checkout) -->
+  <Teleport to="body">
+    <div v-if="orderPlaced" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div class="w-full max-w-sm bg-white p-10 text-center space-y-5 shadow-2xl">
+        <div class="flex items-center justify-center w-16 h-16 mx-auto bg-emerald-100">
+          <svg class="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-2xl font-semibold text-stone-900">Order Placed!</h2>
+          <p class="mt-1 text-sm text-stone-400 font-mono">Order #{{ placedOrderId }}</p>
+        </div>
+        <p v-if="isNewUser" class="text-stone-600 text-sm leading-relaxed">
+          Your account has been created using your mobile number.<br>
+          Log in anytime to track this order and view your order history.
+        </p>
+        <p v-else class="text-stone-600 text-sm leading-relaxed">
+          Thank you for your order!<br>
+          Log in to track this order and view your order history.
+        </p>
+        <div class="flex flex-col gap-3">
+          <router-link
+            to="/auth"
+            class="block bg-stone-900 px-8 py-3 text-sm font-semibold uppercase tracking-[0.1em] text-white transition hover:bg-stone-700"
+          >
+            Log In
+          </router-link>
+          <router-link
+            to="/store"
+            class="block border border-stone-300 px-8 py-3 text-sm font-semibold uppercase tracking-[0.1em] text-stone-700 transition hover:border-stone-500 hover:bg-stone-50"
+          >
+            Go to Store
+          </router-link>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- OTP Verification Modal (guest orders) -->
+  <Teleport to="body">
+    <div v-if="otpModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
+        <h2 class="text-xl font-semibold text-stone-900">Verify your mobile</h2>
+        <p class="mt-2 text-sm text-stone-500">
+          We sent a 6-digit OTP to <span class="font-medium text-stone-800">{{ otpPhone }}</span>.
+          Enter it below to confirm your order and create your account.
+        </p>
+
+        <div v-if="otpSuccess" class="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">
+          {{ otpSuccess }}
+        </div>
+        <div v-if="otpError" class="mt-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700">
+          {{ otpError }}
+        </div>
+
+        <input
+          v-model="otpCode"
+          type="text"
+          maxlength="6"
+          inputmode="numeric"
+          placeholder="Enter 6-digit OTP"
+          class="mt-4 w-full rounded-xl border border-stone-300 px-4 py-3 text-center text-2xl tracking-[0.4em] outline-none focus:border-stone-500"
+        />
+
+        <button
+          type="button"
+          :disabled="otpVerifying || otpCode.length !== 6"
+          @click="submitOtp"
+          class="mt-4 w-full rounded-full bg-stone-900 py-3 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:opacity-50"
+        >
+          {{ otpVerifying ? 'Verifying…' : 'Verify & Continue' }}
+        </button>
+
+        <button
+          type="button"
+          :disabled="otpSending"
+          @click="resendOtp"
+          class="mt-3 w-full text-center text-sm text-stone-500 hover:text-stone-800 disabled:opacity-50"
+        >
+          {{ otpSending ? 'Sending…' : 'Resend OTP' }}
+        </button>
+      </div>
+    </div>
+  </Teleport>
 </template>

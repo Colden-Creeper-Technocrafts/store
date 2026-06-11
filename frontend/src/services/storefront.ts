@@ -28,12 +28,32 @@ const storeTagline = ref<string | null>(null)
 const storeBannerImage = ref<string | null>(null)
 const storeBannerTitle = ref<string | null>(null)
 const storeBannerText = ref<string | null>(null)
+const storeCurrency = ref('INR')
 const isLoaded = ref(false)
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: '₹', USD: '$', EUR: '€', GBP: '£', JPY: '¥',
+}
+
+export const formatPrice = (amount: number | null | undefined): string => {
+  const symbol = CURRENCY_SYMBOLS[storeCurrency.value] ?? storeCurrency.value
+  return `${symbol}${Number(amount ?? 0).toFixed(2)}`
+}
 const categories = ref<StoreCategoryNode[]>([])
 const categoriesLoaded = ref(false)
 const liveCoupons = ref<StorefrontCoupon[]>([])
 const upcomingCoupons = ref<StorefrontCoupon[]>([])
 const couponsLoaded = ref(false)
+
+export type StorefrontVariant = {
+  id: number
+  sku?: string | null
+  price: number
+  sale_price?: number | null
+  quantity: number
+  options?: Record<string, string> | null
+  is_default: boolean
+}
 
 export type StorefrontProduct = {
   id: number
@@ -48,6 +68,7 @@ export type StorefrontProduct = {
   sale_price?: number | null
   quantity?: number | null
   weight?: number | null
+  variants?: StorefrontVariant[]
 }
 
 const products = ref<StorefrontProduct[]>([])
@@ -82,6 +103,7 @@ export const loadStorefront = async (force = false): Promise<void> => {
       storeBannerImage.value = typeof store.banner_image === 'string' && store.banner_image.trim() ? store.banner_image : null
       storeBannerTitle.value = typeof store.banner_title === 'string' && store.banner_title.trim() ? store.banner_title : null
       storeBannerText.value = typeof store.banner_text === 'string' && store.banner_text.trim() ? store.banner_text : null
+      storeCurrency.value = typeof store.currency === 'string' && store.currency.trim() ? store.currency.toUpperCase() : 'INR'
     } catch {
       storeLayout.value = 'ladies'
       storeName.value = 'Store'

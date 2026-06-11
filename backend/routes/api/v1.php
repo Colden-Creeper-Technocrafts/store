@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\OtpController;
 use App\Http\Controllers\Api\V1\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\AdminNotificationController;
 use App\Http\Controllers\Api\V1\AdminSettingsController;
@@ -28,6 +29,13 @@ Route::get('/storefront/products/{slug}', [StorefrontController::class, 'product
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
 Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
+
+// OTP — public endpoints
+Route::post('/otp/send',          [OtpController::class, 'send']);
+Route::post('/otp/verify',        [OtpController::class, 'verify']);
+Route::post('/otp/login/send',    [OtpController::class, 'loginSend']);
+Route::post('/otp/login/verify',  [OtpController::class, 'loginVerify']);
+Route::get('/otp/verify-email',   [OtpController::class, 'verifyEmail']);
 
 // Razorpay — public so guest checkouts work; ownership is validated inside each method
 Route::post('/payments/razorpay/create-order', [RazorpayController::class, 'createOrder']);
@@ -124,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/logs', [AdminNotificationController::class, 'logs']);
     });
 
+    Route::post('/otp/set-password', [OtpController::class, 'setPassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
 });

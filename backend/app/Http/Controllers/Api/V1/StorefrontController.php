@@ -70,6 +70,7 @@ class StorefrontController extends Controller
                 'banner_image' => $this->resolveLogoUrl($store->banner_image ?? null, $request),
                 'banner_title' => $store->banner_title ?? null,
                 'banner_text'  => $store->banner_text ?? null,
+                'currency'     => $store->currency ?? 'INR',
             ],
         ]);
     }

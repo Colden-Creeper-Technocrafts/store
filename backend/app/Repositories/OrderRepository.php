@@ -37,15 +37,25 @@ class OrderRepository implements OrderRepositoryInterface
                 ->get()
                 ->keyBy('id');
 
+            $defaultVariants = DB::table('product_variants as pv')
+                ->whereIn('pv.product_id', $productIds)
+                ->whereRaw('pv.id = (SELECT id FROM product_variants WHERE product_id = pv.product_id ORDER BY is_default DESC, id ASC LIMIT 1)')
+                ->lockForUpdate()
+                ->get(['pv.id', 'pv.product_id', 'pv.price', 'pv.sale_price', 'pv.quantity', 'pv.sku'])
+                ->keyBy('product_id');
+
             foreach ($cart->items as $item) {
-                $this->assertStock($lockedProducts->get($item->product_id), $item->quantity);
+                $p = $lockedProducts->get($item->product_id);
+                $v = $defaultVariants->get($item->product_id);
+                $this->assertStock($p, $item->quantity, $v);
             }
 
-            $subtotal        = 0;
-            $totalWeightKg   = 0.0;
+            $subtotal      = 0;
+            $totalWeightKg = 0.0;
             foreach ($cart->items as $item) {
                 $p              = $lockedProducts->get($item->product_id);
-                $subtotal      += (float) ($p->sale_price ?? $p->price) * $item->quantity;
+                $v              = $defaultVariants->get($item->product_id);
+                $subtotal      += $this->effectivePrice($p, $v) * $item->quantity;
                 $totalWeightKg += (float) ($p->weight ?? 0) * $item->quantity;
             }
 
@@ -70,20 +80,21 @@ class OrderRepository implements OrderRepositoryInterface
             ]));
 
             foreach ($cart->items as $item) {
-                $product = $lockedProducts->get($item->product_id);
-                $price   = (float) ($product->sale_price ?? $product->price);
+                $p     = $lockedProducts->get($item->product_id);
+                $v     = $defaultVariants->get($item->product_id);
+                $price = $this->effectivePrice($p, $v);
 
                 $order->items()->create([
-                    'product_id' => $product->id,
-                    'name'       => $product->name,
-                    'sku'        => $product->sku,
+                    'product_id' => $p->id,
+                    'name'       => $p->name,
+                    'sku'        => $v?->sku ?? $p->sku,
                     'price'      => $price,
                     'quantity'   => $item->quantity,
                     'subtotal'   => round($price * $item->quantity, 2),
-                    'weight_kg'  => ($product->weight > 0) ? (float) $product->weight : null,
+                    'weight_kg'  => ($p->weight > 0) ? (float) $p->weight : null,
                 ]);
 
-                $product->decrement('quantity', $item->quantity);
+                $this->decrementStock($p, $v, $item->quantity);
             }
 
             if ($coupon) {
@@ -110,15 +121,25 @@ class OrderRepository implements OrderRepositoryInterface
                 ->get()
                 ->keyBy('id');
 
+            $defaultVariants = DB::table('product_variants as pv')
+                ->whereIn('pv.product_id', $productIds)
+                ->whereRaw('pv.id = (SELECT id FROM product_variants WHERE product_id = pv.product_id ORDER BY is_default DESC, id ASC LIMIT 1)')
+                ->lockForUpdate()
+                ->get(['pv.id', 'pv.product_id', 'pv.price', 'pv.sale_price', 'pv.quantity', 'pv.sku'])
+                ->keyBy('product_id');
+
             foreach ($items as $item) {
-                $this->assertStock($lockedProducts->get($item['product_id']), $item['quantity']);
+                $p = $lockedProducts->get($item['product_id']);
+                $v = $defaultVariants->get($item['product_id']);
+                $this->assertStock($p, $item['quantity'], $v);
             }
 
-            $subtotal        = 0;
-            $totalWeightKg   = 0.0;
+            $subtotal      = 0;
+            $totalWeightKg = 0.0;
             foreach ($items as $item) {
                 $p              = $lockedProducts->get($item['product_id']);
-                $subtotal      += (float) ($p->sale_price ?? $p->price) * $item['quantity'];
+                $v              = $defaultVariants->get($item['product_id']);
+                $subtotal      += $this->effectivePrice($p, $v) * $item['quantity'];
                 $totalWeightKg += (float) ($p->weight ?? 0) * $item['quantity'];
             }
 
@@ -143,20 +164,21 @@ class OrderRepository implements OrderRepositoryInterface
             ]));
 
             foreach ($items as $item) {
-                $product = $lockedProducts->get($item['product_id']);
-                $price   = (float) ($product->sale_price ?? $product->price);
+                $p     = $lockedProducts->get($item['product_id']);
+                $v     = $defaultVariants->get($item['product_id']);
+                $price = $this->effectivePrice($p, $v);
 
                 $order->items()->create([
-                    'product_id' => $product->id,
-                    'name'       => $product->name,
-                    'sku'        => $product->sku,
+                    'product_id' => $p->id,
+                    'name'       => $p->name,
+                    'sku'        => $v?->sku ?? $p->sku,
                     'price'      => $price,
                     'quantity'   => $item['quantity'],
                     'subtotal'   => round($price * $item['quantity'], 2),
-                    'weight_kg'  => ($product->weight > 0) ? (float) $product->weight : null,
+                    'weight_kg'  => ($p->weight > 0) ? (float) $p->weight : null,
                 ]);
 
-                $product->decrement('quantity', $item['quantity']);
+                $this->decrementStock($p, $v, $item['quantity']);
             }
 
             if ($coupon) {
@@ -197,10 +219,10 @@ class OrderRepository implements OrderRepositoryInterface
         ];
     }
 
-    private function assertStock(?Product $product, int $requested): void
+    private function assertStock(?Product $product, int $requested, ?object $variant = null): void
     {
         if (!$product) return;
-        $stock = (int) $product->quantity;
+        $stock = (int) ($variant?->quantity ?? $product->quantity);
         if ($stock <= 0) {
             throw ValidationException::withMessages([
                 'quantity' => ["\"{$product->name}\" is out of stock."],
@@ -210,6 +232,20 @@ class OrderRepository implements OrderRepositoryInterface
             throw ValidationException::withMessages([
                 'quantity' => ["Only {$stock} unit(s) of \"{$product->name}\" available."],
             ]);
+        }
+    }
+
+    private function effectivePrice(Product $product, ?object $variant): float
+    {
+        return (float) ($variant?->sale_price ?? $variant?->price ?? $product->sale_price ?? $product->price);
+    }
+
+    private function decrementStock(Product $product, ?object $variant, int $qty): void
+    {
+        if ($variant) {
+            DB::table('product_variants')->where('id', $variant->id)->decrement('quantity', $qty);
+        } else {
+            $product->decrement('quantity', $qty);
         }
     }
 
