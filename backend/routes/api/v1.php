@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\AddressController;
+use App\Http\Controllers\Api\V1\FulfillmentController;
 use App\Http\Controllers\Api\V1\StorefrontController;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -29,6 +30,7 @@ Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::get('/storefront/products/{slug}', [StorefrontController::class, 'productDetail']);
 Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
 Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
+Route::get('/shipping/check', [ShippingController::class, 'check']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
 
 // OTP — public endpoints
@@ -95,6 +97,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
         Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
         Route::patch('/{id}/return-status', [AdminOrderController::class, 'updateReturnStatus']);
+        Route::post('/{id}/fulfill', [FulfillmentController::class, 'fulfill']);
+        Route::get('/{id}/tracking-live', [FulfillmentController::class, 'tracking']);
     });
 
     // Admin shipping management

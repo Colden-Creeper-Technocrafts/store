@@ -1,5 +1,30 @@
 import api from './api'
 
+export type Shipment = {
+  id: number
+  awb_number: string | null
+  tracking_url: string | null
+  label_url: string | null
+  provider_shipment_id: string | null
+  status: string
+  weight_kg: number | null
+  shipped_at: string | null
+}
+
+export type TrackingEvent = {
+  status: string
+  location: string | null
+  description: string | null
+  timestamp: string | null
+}
+
+export type TrackingResult = {
+  awb_number: string
+  current_status: string | null
+  estimated_delivery: string | null
+  history: TrackingEvent[]
+}
+
 export type AdminOrderItem = {
   id: number
   product_id: number | null
@@ -109,4 +134,14 @@ export const updateOrderReturnStatus = async (
 ): Promise<AdminOrder> => {
   const response = await api.patch(`/admin/orders/${id}/return-status`, { return_status, return_reason })
   return response.data.order
+}
+
+export const fulfillOrder = async (id: number): Promise<Shipment> => {
+  const response = await api.post(`/admin/orders/${id}/fulfill`)
+  return response.data.shipment
+}
+
+export const getLiveTracking = async (id: number): Promise<TrackingResult> => {
+  const response = await api.get(`/admin/orders/${id}/tracking-live`)
+  return response.data
 }

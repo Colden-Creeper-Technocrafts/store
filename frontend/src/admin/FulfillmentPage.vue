@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import { fetchAdminOrders, updateOrderStatus, updateOrderTracking, type AdminOrder } from '../services/adminOrders'
+import {
+  fetchAdminOrders,
+  updateOrderStatus,
+  updateOrderTracking,
+  fulfillOrder,
+  getLiveTracking,
+  type AdminOrder,
+  type Shipment,
+  type TrackingResult,
+} from '../services/adminOrders'
 
 const orders = ref<AdminOrder[]>([])
 const meta = ref({ total: 0, per_page: 20, current_page: 1, last_page: 1 })
@@ -13,20 +22,23 @@ const trackingNumber = ref('')
 const trackingUrl = ref('')
 const isSaving = ref(false)
 
+// Auto-fulfill state
+const isFulfilling = ref(false)
+const fulfilledShipment = ref<Shipment | null>(null)
+const fulfillError = ref('')
+
+// Live tracking state
+const trackingOrderId = ref<number | null>(null)
+const trackingResult = ref<TrackingResult | null>(null)
+const isTrackingLoading = ref(false)
+const trackingError = ref('')
+
 const filters = reactive({
   status: 'processing',
   search: '',
   page: 1,
   per_page: 20,
 })
-
-const orderStatusColors: Record<string, string> = {
-  pending:    'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  shipped:    'bg-indigo-100 text-indigo-800',
-  delivered:  'bg-emerald-100 text-emerald-800',
-  cancelled:  'bg-rose-100 text-rose-800',
-}
 
 async function load() {
   isLoading.value = true
@@ -46,10 +58,33 @@ function openShipRow(order: AdminOrder) {
   shippingOrderId.value = order.id
   trackingNumber.value = order.tracking_number ?? ''
   trackingUrl.value = order.tracking_url ?? ''
+  fulfilledShipment.value = null
+  fulfillError.value = ''
+  trackingOrderId.value = null
+  trackingResult.value = null
 }
 
 function cancelShip() {
   shippingOrderId.value = null
+  fulfilledShipment.value = null
+  fulfillError.value = ''
+}
+
+async function autoFulfill(order: AdminOrder) {
+  isFulfilling.value = true
+  fulfillError.value = ''
+  fulfilledShipment.value = null
+  try {
+    const shipment = await fulfillOrder(order.id)
+    fulfilledShipment.value = shipment
+    successMessage.value = `Order #${order.id} fulfilled — AWB: ${shipment.awb_number}`
+    await load()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message ?? 'Auto-fulfill failed. Check Shiprocket credentials in Shipping → Providers.'
+    fulfillError.value = msg
+  } finally {
+    isFulfilling.value = false
+  }
 }
 
 async function markShipped(order: AdminOrder) {
@@ -71,12 +106,23 @@ async function markShipped(order: AdminOrder) {
   }
 }
 
-function fmt(val: number) {
-  return `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+async function openTracking(order: AdminOrder) {
+  trackingOrderId.value = order.id
+  trackingResult.value = null
+  trackingError.value = ''
+  isTrackingLoading.value = true
+  try {
+    trackingResult.value = await getLiveTracking(order.id)
+  } catch (err: any) {
+    trackingError.value = err?.response?.data?.message ?? 'Could not load tracking.'
+  } finally {
+    isTrackingLoading.value = false
+  }
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+function closeTracking() {
+  trackingOrderId.value = null
+  trackingResult.value = null
 }
 
 function prevPage() {
@@ -85,6 +131,14 @@ function prevPage() {
 
 function nextPage() {
   if (meta.value.current_page < meta.value.last_page) filters.page = meta.value.current_page + 1
+}
+
+function fmt(val: number) {
+  return `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 watch(() => [filters.page, filters.per_page, filters.search], load, { immediate: true })
@@ -163,47 +217,165 @@ watch(() => [filters.page, filters.per_page, filters.search], load, { immediate:
               </td>
               <td class="px-6 py-4 text-right font-semibold text-slate-900">{{ fmt(order.total) }}</td>
               <td class="px-6 py-4 text-right">
-                <button
-                  @click="openShipRow(order)"
-                  class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
-                >
-                  Ship
-                </button>
+                <div class="flex items-center justify-end gap-2">
+                  <!-- Tracking button — only if order has AWB -->
+                  <button
+                    v-if="order.tracking_number"
+                    @click="openTracking(order)"
+                    class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    Track
+                  </button>
+                  <button
+                    @click="openShipRow(order)"
+                    class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+                  >
+                    Ship
+                  </button>
+                </div>
               </td>
             </tr>
 
-            <!-- Inline ship row -->
-            <tr v-if="shippingOrderId === order.id" class="bg-blue-50 border-b">
-              <td colspan="6" class="px-6 py-4">
-                <div class="flex flex-wrap items-end gap-3">
-                  <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Tracking number</label>
-                    <input
-                      v-model="trackingNumber"
-                      type="text"
-                      placeholder="e.g. 1234567890"
-                      class="rounded-xl border border-slate-300 px-3 py-1.5 text-sm w-44 focus:outline-none"
-                    />
+            <!-- Inline ship drawer -->
+            <tr v-if="shippingOrderId === order.id" class="bg-slate-50 border-b">
+              <td colspan="6" class="px-6 py-5">
+
+                <!-- Success after auto-fulfill -->
+                <div v-if="fulfilledShipment" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+                  <p class="text-sm font-semibold text-emerald-800">Shipment created successfully</p>
+                  <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-emerald-700">
+                    <span class="font-medium">AWB Number</span>
+                    <span>{{ fulfilledShipment.awb_number }}</span>
+                    <span class="font-medium">Tracking URL</span>
+                    <a
+                      v-if="fulfilledShipment.tracking_url"
+                      :href="fulfilledShipment.tracking_url"
+                      target="_blank"
+                      class="underline break-all"
+                    >{{ fulfilledShipment.tracking_url }}</a>
+                    <span v-else class="text-emerald-500">—</span>
+                    <span class="font-medium">Shipping Label</span>
+                    <a
+                      v-if="fulfilledShipment.label_url"
+                      :href="fulfilledShipment.label_url"
+                      target="_blank"
+                      class="underline"
+                    >Download PDF</a>
+                    <span v-else class="text-emerald-500">Not available yet</span>
+                    <span class="font-medium">Weight</span>
+                    <span>{{ fulfilledShipment.weight_kg }} kg</span>
                   </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Tracking URL (optional)</label>
-                    <input
-                      v-model="trackingUrl"
-                      type="url"
-                      placeholder="https://…"
-                      class="rounded-xl border border-slate-300 px-3 py-1.5 text-sm w-56 focus:outline-none"
-                    />
+                  <button @click="cancelShip" class="mt-2 rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
+                    Close
+                  </button>
+                </div>
+
+                <!-- Ship form -->
+                <div v-else class="space-y-4">
+                  <!-- Error from auto-fulfill -->
+                  <div v-if="fulfillError" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {{ fulfillError }}
                   </div>
-                  <button
-                    :disabled="isSaving"
-                    @click="markShipped(order)"
-                    class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    Confirm Shipped
-                  </button>
-                  <button @click="cancelShip" class="rounded-xl border px-4 py-2 text-sm text-slate-600">
-                    Cancel
-                  </button>
+
+                  <!-- Auto-fulfill via Shiprocket -->
+                  <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                    <p class="mb-1 text-sm font-semibold text-indigo-900">Auto-fulfill via Shiprocket</p>
+                    <p class="mb-3 text-xs text-indigo-600">Creates a Shiprocket order, assigns an AWB automatically, and marks this order as shipped.</p>
+                    <button
+                      :disabled="isFulfilling"
+                      @click="autoFulfill(order)"
+                      class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <svg v-if="isFulfilling" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      {{ isFulfilling ? 'Creating shipment…' : 'Auto-fulfill via Shiprocket' }}
+                    </button>
+                  </div>
+
+                  <!-- Divider -->
+                  <div class="flex items-center gap-3 text-xs text-slate-400">
+                    <div class="flex-1 border-t border-slate-200"></div>
+                    <span>or enter tracking manually</span>
+                    <div class="flex-1 border-t border-slate-200"></div>
+                  </div>
+
+                  <!-- Manual tracking entry -->
+                  <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Tracking number</label>
+                      <input
+                        v-model="trackingNumber"
+                        type="text"
+                        placeholder="e.g. 1234567890"
+                        class="rounded-xl border border-slate-300 px-3 py-1.5 text-sm w-44 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-600 mb-1">Tracking URL (optional)</label>
+                      <input
+                        v-model="trackingUrl"
+                        type="url"
+                        placeholder="https://…"
+                        class="rounded-xl border border-slate-300 px-3 py-1.5 text-sm w-56 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      :disabled="isSaving"
+                      @click="markShipped(order)"
+                      class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      Confirm Shipped
+                    </button>
+                    <button @click="cancelShip" class="rounded-xl border px-4 py-2 text-sm text-slate-600">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Live tracking panel -->
+            <tr v-if="trackingOrderId === order.id" class="bg-slate-50 border-b">
+              <td colspan="6" class="px-6 py-5">
+                <div class="flex items-center justify-between mb-3">
+                  <p class="text-sm font-semibold text-slate-800">Live Tracking — Order #{{ order.id }}</p>
+                  <button @click="closeTracking" class="text-xs text-slate-400 hover:text-slate-600">Close</button>
+                </div>
+
+                <div v-if="isTrackingLoading" class="text-sm text-slate-400">Loading tracking events…</div>
+                <div v-else-if="trackingError" class="text-sm text-rose-600">{{ trackingError }}</div>
+                <div v-else-if="trackingResult">
+                  <div class="mb-3 flex flex-wrap gap-4 text-sm">
+                    <span>
+                      <span class="font-medium text-slate-600">AWB:</span>
+                      <span class="ml-1 text-slate-800">{{ trackingResult.awb_number }}</span>
+                    </span>
+                    <span v-if="trackingResult.current_status">
+                      <span class="font-medium text-slate-600">Status:</span>
+                      <span class="ml-1 text-slate-800">{{ trackingResult.current_status }}</span>
+                    </span>
+                    <span v-if="trackingResult.estimated_delivery">
+                      <span class="font-medium text-slate-600">EDD:</span>
+                      <span class="ml-1 text-slate-800">{{ trackingResult.estimated_delivery }}</span>
+                    </span>
+                  </div>
+
+                  <div v-if="trackingResult.history.length === 0" class="text-sm text-slate-400">No tracking events yet.</div>
+                  <ol v-else class="relative border-l border-slate-200 ml-2 space-y-3">
+                    <li
+                      v-for="(event, idx) in trackingResult.history"
+                      :key="idx"
+                      class="ml-4"
+                    >
+                      <div class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-slate-400"></div>
+                      <p class="text-xs font-semibold text-slate-700">{{ event.status }}</p>
+                      <p v-if="event.location" class="text-xs text-slate-500">{{ event.location }}</p>
+                      <p v-if="event.description" class="text-xs text-slate-600 mt-0.5">{{ event.description }}</p>
+                      <p class="text-xs text-slate-400">{{ event.timestamp ?? '—' }}</p>
+                    </li>
+                  </ol>
                 </div>
               </td>
             </tr>

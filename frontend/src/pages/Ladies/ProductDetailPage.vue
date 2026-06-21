@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { loadStoreProduct, formatPrice, type StorefrontProduct, type StorefrontVariant } from '../../services/storefront'
+import { loadStoreProduct, formatPrice, checkPincode, type StorefrontProduct, type StorefrontVariant } from '../../services/storefront'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 
@@ -51,6 +51,25 @@ const variantLabel = (v: StorefrontVariant) => {
     return Object.entries(v.options).map(([, val]) => val).join(' / ')
   }
   return v.sku ?? `Variant ${v.id}`
+}
+
+// Pincode checker
+const pincodeInput = ref('')
+const pincodeChecking = ref(false)
+const pincodeResult = ref<{ serviceable: boolean; message: string } | null>(null)
+
+const handlePincodeCheck = async () => {
+  const pin = pincodeInput.value.trim()
+  if (!pin || pin.length < 6) return
+  pincodeChecking.value = true
+  pincodeResult.value = null
+  try {
+    pincodeResult.value = await checkPincode(pin)
+  } catch {
+    pincodeResult.value = { serviceable: false, message: 'Could not check pincode. Try again.' }
+  } finally {
+    pincodeChecking.value = false
+  }
 }
 
 const handleAdd = async () => {
@@ -210,6 +229,36 @@ onMounted(async () => {
             >
               View Cart
             </router-link>
+          </div>
+
+          <!-- Pincode checker -->
+          <div class="border-t border-stone-100 pt-6">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Check Delivery</p>
+            <div class="flex gap-2">
+              <input
+                v-model="pincodeInput"
+                type="text"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="Enter pincode"
+                class="w-36 rounded border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:border-stone-400"
+                @keyup.enter="handlePincodeCheck"
+              />
+              <button
+                @click="handlePincodeCheck"
+                :disabled="pincodeChecking || pincodeInput.trim().length < 6"
+                class="rounded border border-stone-900 px-4 py-2 text-sm font-semibold text-stone-900 transition hover:bg-stone-900 hover:text-white disabled:opacity-40"
+              >
+                {{ pincodeChecking ? 'Checking…' : 'Check' }}
+              </button>
+            </div>
+            <p
+              v-if="pincodeResult"
+              class="mt-2 text-sm font-medium"
+              :class="pincodeResult.serviceable ? 'text-emerald-600' : 'text-rose-600'"
+            >
+              {{ pincodeResult.serviceable ? '✓' : '✗' }} {{ pincodeResult.message }}
+            </p>
           </div>
 
           <!-- Full description -->

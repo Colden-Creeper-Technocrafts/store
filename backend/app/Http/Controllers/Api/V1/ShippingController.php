@@ -49,4 +49,38 @@ class ShippingController extends Controller
             ], $rates),
         ]);
     }
+
+    /**
+     * Check whether delivery is available to a given pincode.
+     *
+     * Serviceability is determined by whether any active shipping method
+     * has a rate rule covering this pincode (zone-specific or catch-all).
+     *
+     * Public endpoint — no auth required.
+     */
+    public function check(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'pincode' => ['required', 'string', 'max:20'],
+            'state'   => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $rateRequest = new RateRequest(
+            weightKg:           0.1,
+            orderAmount:        0,
+            destinationPincode: $data['pincode'],
+            destinationState:   $data['state'] ?? '',
+        );
+
+        $methods      = $this->engine->availableMethods($rateRequest);
+        $serviceable  = count($methods) > 0;
+
+        return response()->json([
+            'pincode'     => $data['pincode'],
+            'serviceable' => $serviceable,
+            'message'     => $serviceable
+                ? 'Delivery available'
+                : 'Delivery not available to this pincode',
+        ]);
+    }
 }
