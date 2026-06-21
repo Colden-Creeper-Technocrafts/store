@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Interfaces\AuthRepositoryInterface;
+use App\Interfaces\UserAddressRepositoryInterface;
+use App\Repositories\UserAddressRepository;
 use App\Interfaces\CustomerRepositoryInterface;
 use App\Interfaces\CartRepositoryInterface;
 use App\Interfaces\CategoryRepositoryInterface;
@@ -45,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
         $this->app->bind(ProductVariantRepositoryInterface::class, ProductVariantRepository::class);
         $this->app->bind(StorefrontRepositoryInterface::class, StorefrontRepository::class);
+        $this->app->bind(UserAddressRepositoryInterface::class, UserAddressRepository::class);
         $this->app->singleton(ShippingProviderManager::class);
         $this->app->singleton(ShippingRuleEngine::class);
         $this->app->singleton(SmsService::class);

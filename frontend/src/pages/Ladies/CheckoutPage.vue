@@ -15,6 +15,7 @@ import { validateCoupon } from '../../services/coupon'
 import type { CouponValidation } from '../../services/coupon'
 import { sendOrderOtp, verifyOrderOtp } from '../../services/otp'
 import { formatPrice } from '../../services/storefront'
+import { fetchAddresses, type UserAddress } from '../../services/addresses'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -90,6 +91,21 @@ const submitOtp = async () => {
   }
 }
 
+// Saved addresses (logged-in users)
+const savedAddresses = ref<UserAddress[]>([])
+const selectedAddressId = ref<number | null>(null)
+
+const applySavedAddress = (addr: UserAddress) => {
+  selectedAddressId.value = addr.id
+  form.shipping_name    = addr.name
+  form.shipping_phone   = addr.phone ?? ''
+  form.shipping_address = addr.address
+  form.shipping_city    = addr.city
+  form.shipping_state   = addr.state ?? ''
+  form.shipping_postal_code = addr.postal_code
+  form.shipping_country = addr.country
+}
+
 const couponCode = ref('')
 const couponValidating = ref(false)
 const couponError = ref('')
@@ -114,6 +130,11 @@ const form = reactive({
 onMounted(async () => {
   if (!cartStore.loaded) await cartStore.load()
   if (cartStore.isEmpty) router.push('/cart')
+  if (authStore.isCustomer) {
+    savedAddresses.value = await fetchAddresses().catch(() => [])
+    const def = savedAddresses.value.find(a => a.is_default) ?? savedAddresses.value[0]
+    if (def) applySavedAddress(def)
+  }
 })
 
 let rateTimer: ReturnType<typeof setTimeout> | null = null
@@ -242,6 +263,33 @@ const submit = async () => {
 
         <div v-if="errorMessage" class="mb-4 rounded bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700">
           {{ errorMessage }}
+        </div>
+
+        <!-- Saved address picker (logged-in users) -->
+        <div v-if="savedAddresses.length > 0" class="mb-6 space-y-2">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Saved Addresses</p>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <button
+              v-for="addr in savedAddresses"
+              :key="addr.id"
+              type="button"
+              @click="applySavedAddress(addr)"
+              :class="[
+                'text-left border p-3 text-sm transition',
+                selectedAddressId === addr.id
+                  ? 'border-stone-900 bg-stone-50'
+                  : 'border-stone-200 hover:border-stone-400'
+              ]"
+            >
+              <span class="font-semibold text-stone-900 block">{{ addr.name }}</span>
+              <span class="text-stone-500 text-xs">{{ addr.address }}, {{ addr.city }} — {{ addr.postal_code }}</span>
+              <span v-if="addr.is_default" class="ml-1 text-[10px] font-bold uppercase text-stone-400">(Default)</span>
+            </button>
+          </div>
+          <button type="button" @click="selectedAddressId = null"
+            class="text-xs text-stone-400 hover:text-stone-700 underline underline-offset-2">
+            Enter a different address
+          </button>
         </div>
 
         <form @submit.prevent="submit" class="space-y-4">

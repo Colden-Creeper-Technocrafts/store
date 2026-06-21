@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Interfaces\UserAddressRepositoryInterface;
 use App\Models\Order;
 use App\Models\OtpVerification;
 use App\Models\User;
@@ -13,6 +14,8 @@ use Razorpay\Api\Errors\SignatureVerificationError;
 
 class RazorpayController extends Controller
 {
+    public function __construct(private readonly UserAddressRepositoryInterface $userAddresses) {}
+
     private function api(): Api
     {
         return new Api(
@@ -116,6 +119,7 @@ class RazorpayController extends Controller
                 $user = User::where('phone', $otpRecord->phone)->first();
                 if ($user) {
                     $order->update(['user_id' => $user->id]);
+                    $this->userAddresses->upsertFromOrder($user->id, $order->fresh());
                 }
             }
         }

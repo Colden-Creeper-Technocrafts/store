@@ -27,7 +27,7 @@ class ShippingController extends Controller
         ]);
 
         $rateRequest = new RateRequest(
-            weightKg:           (float) ($data['weight_kg'] ?? 0.5),
+            weightKg:           max(0.1, (float) ($data['weight_kg'] ?? 0)),
             orderAmount:        (float) $data['order_amount'],
             destinationPincode: $data['pincode'],
             destinationState:   $data['state'] ?? '',

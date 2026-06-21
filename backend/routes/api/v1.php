@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\StorefrontController;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -45,6 +46,11 @@ Route::post('/payments/razorpay/webhook', [RazorpayController::class, 'webhook']
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/profile', [AuthController::class, 'profile']);
+
+    // Saved addresses
+    Route::get('/addresses', [AddressController::class, 'index']);
+    Route::patch('/addresses/{id}/default', [AddressController::class, 'setDefault']);
+    Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
 
     Route::apiResource('/categories', CategoryController::class);
     Route::post('/categories/{id}/image', [CategoryController::class, 'uploadImage']);
