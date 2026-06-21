@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Interfaces\CouponRepositoryInterface;
 use App\Interfaces\OrderRepositoryInterface;
+use App\Interfaces\UserAddressRepositoryInterface;
 use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
@@ -24,6 +25,7 @@ class OrderRepository implements OrderRepositoryInterface
         private readonly CouponRepositoryInterface $coupons,
         private readonly ShippingRuleEngine $engine,
         private readonly NotificationService $notifications,
+        private readonly UserAddressRepositoryInterface $userAddresses,
     ) {}
 
     public function createFromCart(int $userId, Cart $cart, array $shippingData, ?Coupon $coupon = null): Order
@@ -108,6 +110,7 @@ class OrderRepository implements OrderRepositoryInterface
         });
 
         $this->notifications->notifyOrderPlaced($order);
+        $this->userAddresses->upsertFromOrder($userId, $order);
 
         return $order;
     }

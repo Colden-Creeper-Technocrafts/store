@@ -20,6 +20,7 @@ import AdminFulfillmentPage from '../admin/FulfillmentPage.vue'
 import AdminNotificationsPage from '../admin/NotificationsPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
+import StorefrontAddressesPage from '../pages/Storefront/AddressesPage.vue'
 
 const routes = [
   {
@@ -65,6 +66,11 @@ const routes = [
   {
     path: '/profile',
     component: CustomerProfilePage,
+    meta: { layout: 'store' }
+  },
+  {
+    path: '/addresses',
+    component: StorefrontAddressesPage,
     meta: { layout: 'store' }
   },
   {
@@ -194,6 +200,10 @@ router.beforeEach((to) => {
   }
 
   if (to.path === '/orders' && !isLoggedIn && !to.query?.placed) {
+    return '/login'
+  }
+
+  if (to.path === '/addresses' && !isLoggedIn) {
     return '/login'
   }
 })
