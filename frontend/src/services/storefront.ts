@@ -229,3 +229,14 @@ export const loadStoreProducts = async (categoryIds: number[] = []): Promise<voi
 
   return productsLoadingPromise
 }
+
+export type PincodeCheckResult = {
+  pincode: string
+  serviceable: boolean
+  message: string
+}
+
+export const checkPincode = async (pincode: string, state = ''): Promise<PincodeCheckResult> => {
+  const res = await api.get('/shipping/check', { params: { pincode, state } })
+  return res.data
+}
