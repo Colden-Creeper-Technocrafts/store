@@ -233,7 +233,7 @@ pm2 startup
 sudo apt install -y certbot python3-certbot-apache
 
 # Obtain certificate (requires a domain pointing to your Elastic IP)
-sudo certbot --apache -d yourdomain.com -d www.yourdomain.com
+sudo certbot --apache -d kirva.in -d www.kirva.in
 
 # Certbot will auto-modify your Apache config for HTTPS
 # Certificates auto-renew via a systemd timer — verify with:
