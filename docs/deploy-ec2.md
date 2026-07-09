@@ -115,9 +115,9 @@ sudo mysql_secure_installation
 sudo mysql -u root -p
 
 # Inside MySQL:
-CREATE DATABASE kirva_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'kirva_store'@'localhost' IDENTIFIED BY 'StrongPassword123!';
-GRANT ALL PRIVILEGES ON kirva_store.* TO 'kirva_store'@'localhost';
+CREATE DATABASE kirva_commerce CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'kirva_commerce'@'localhost' IDENTIFIED BY 'KIrvA#5617j';
+GRANT ALL PRIVILEGES ON kirva_commerce.* TO 'kirva_commerce'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```

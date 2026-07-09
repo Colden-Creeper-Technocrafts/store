@@ -35,12 +35,24 @@ function flash(msg: string, isError = false) {
 // PROVIDERS TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-const providers      = ref<ShippingProvider[]>([])
+const providers       = ref<ShippingProvider[]>([])
 const editingProvider = ref<ShippingProvider | null>(null)
-const providerForm   = reactive<{ settings: string; credentials: string; is_active: boolean }>({
-  settings: '{}', credentials: '{}', is_active: false,
+const validatingId    = ref<number | null>(null)
+
+// Per-field provider form — populated based on provider slug
+const providerForm = reactive({
+  is_active: false,
+  // Shiprocket credentials
+  sr_email: '', sr_password: '',
+  // Shiprocket + Delhivery shared settings
+  pickup_pincode: '', pickup_location: '',
+  default_length: '10', default_width: '10', default_height: '10',
+  // Delhivery credentials
+  dhl_api_token: '',
+  // Delhivery settings
+  dhl_pickup_name: '', dhl_pickup_address: '', dhl_seller_name: '',
+  dhl_shipping_mode: 'Surface', dhl_use_staging: false,
 })
-const validatingId   = ref<number | null>(null)
 
 const loadProviders = async () => {
   providers.value = await fetchProviders()
@@ -48,19 +60,61 @@ const loadProviders = async () => {
 
 const openProviderEdit = (p: ShippingProvider) => {
   editingProvider.value = p
-  providerForm.is_active   = p.is_active
-  providerForm.settings    = JSON.stringify(p.settings ?? {}, null, 2)
-  providerForm.credentials = '{}'
+  const s = p.settings ?? {}
+  providerForm.is_active       = p.is_active
+  // Shared settings
+  providerForm.pickup_pincode  = String(s.pickup_pincode  ?? '')
+  providerForm.pickup_location = String(s.pickup_location ?? '')
+  providerForm.default_length  = String(s.default_length  ?? '10')
+  providerForm.default_width   = String(s.default_width   ?? '10')
+  providerForm.default_height  = String(s.default_height  ?? '10')
+  // Delhivery settings
+  providerForm.dhl_pickup_name    = String(s.pickup_name    ?? '')
+  providerForm.dhl_pickup_address = String(s.pickup_address ?? '')
+  providerForm.dhl_seller_name    = String(s.seller_name    ?? '')
+  providerForm.dhl_shipping_mode  = String(s.shipping_mode  ?? 'Surface')
+  providerForm.dhl_use_staging    = Boolean(s.use_staging   ?? false)
+  // Credentials are never returned from API — always start blank
+  providerForm.sr_email     = ''
+  providerForm.sr_password  = ''
+  providerForm.dhl_api_token = ''
 }
 
 const saveProvider = async () => {
   if (!editingProvider.value) return
   isBusy.value = true
   try {
-    let settings: Record<string, unknown> = {}
+    const slug = editingProvider.value.slug
+    let settings: Record<string, unknown>    = {}
     let credentials: Record<string, unknown> = {}
-    settings    = JSON.parse(providerForm.settings)
-    credentials = JSON.parse(providerForm.credentials)
+
+    if (slug === 'shiprocket') {
+      settings = {
+        pickup_pincode:  providerForm.pickup_pincode.trim(),
+        pickup_location: providerForm.pickup_location.trim(),
+        default_length:  Number(providerForm.default_length),
+        default_width:   Number(providerForm.default_width),
+        default_height:  Number(providerForm.default_height),
+      }
+      if (providerForm.sr_email.trim()) {
+        credentials = { email: providerForm.sr_email.trim(), password: providerForm.sr_password }
+      }
+    } else if (slug === 'delhivery') {
+      settings = {
+        pickup_pincode:  providerForm.pickup_pincode.trim(),
+        pickup_name:     providerForm.dhl_pickup_name.trim(),
+        pickup_address:  providerForm.dhl_pickup_address.trim(),
+        seller_name:     providerForm.dhl_seller_name.trim(),
+        shipping_mode:   providerForm.dhl_shipping_mode,
+        use_staging:     providerForm.dhl_use_staging,
+        default_length:  Number(providerForm.default_length),
+        default_width:   Number(providerForm.default_width),
+        default_height:  Number(providerForm.default_height),
+      }
+      if (providerForm.dhl_api_token.trim()) {
+        credentials = { api_token: providerForm.dhl_api_token.trim() }
+      }
+    }
 
     const updated = await updateProvider(editingProvider.value.id, {
       is_active: providerForm.is_active,
@@ -71,7 +125,7 @@ const saveProvider = async () => {
     editingProvider.value = null
     flash('Provider saved.')
   } catch (e: unknown) {
-    flash(e instanceof Error ? e.message : 'Invalid JSON in settings or credentials.', true)
+    flash(e instanceof Error ? e.message : 'Failed to save provider.', true)
   } finally {
     isBusy.value = false
   }
@@ -349,34 +403,127 @@ onMounted(async () => {
         </div>
 
         <!-- Provider edit form -->
-        <div v-if="editingProvider?.id === p.id" class="mt-6 space-y-4 border-t border-slate-100 pt-4">
+        <div v-if="editingProvider?.id === p.id" class="mt-6 space-y-5 border-t border-slate-100 pt-5">
+
+          <!-- Active toggle -->
           <label class="flex items-center gap-3">
             <input type="checkbox" v-model="providerForm.is_active" class="h-4 w-4 rounded" />
             <span class="text-sm font-medium text-slate-700">Active</span>
           </label>
 
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Settings (JSON)</label>
-            <textarea
-              v-model="providerForm.settings"
-              rows="6"
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs text-slate-700 focus:border-slate-400 focus:outline-none"
-            />
-          </div>
+          <!-- ── Shiprocket fields ── -->
+          <template v-if="p.slug === 'shiprocket'">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Credentials</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                <input v-model="providerForm.sr_email" type="email" placeholder="your@shiprocket.com"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+                <p class="mt-1 text-xs text-slate-400">Leave blank to keep existing password</p>
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+                <input v-model="providerForm.sr_password" type="password" placeholder="••••••••"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Settings</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Pickup Pincode</label>
+                <input v-model="providerForm.pickup_pincode" type="text" placeholder="395010"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Pickup Location Name</label>
+                <input v-model="providerForm.pickup_location" type="text" placeholder="Primary"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+                <p class="mt-1 text-xs text-slate-400">Must match exactly: Shiprocket → Settings → Warehouses</p>
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Length (cm)</label>
+                <input v-model="providerForm.default_length" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Width (cm)</label>
+                <input v-model="providerForm.default_width" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Height (cm)</label>
+                <input v-model="providerForm.default_height" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+            </div>
+          </template>
 
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">
-              Credentials (JSON) — leave <code class="text-xs">{}</code> to keep existing
-            </label>
-            <textarea
-              v-model="providerForm.credentials"
-              rows="4"
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs text-slate-700 focus:border-slate-400 focus:outline-none"
-              placeholder='{ "email": "...", "password": "..." }'
-            />
-          </div>
+          <!-- ── Delhivery fields ── -->
+          <template v-else-if="p.slug === 'delhivery'">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Credentials</p>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700">API Token</label>
+              <input v-model="providerForm.dhl_api_token" type="password" placeholder="Leave blank to keep existing"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+            </div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Settings</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Pickup Location Name</label>
+                <input v-model="providerForm.dhl_pickup_name" type="text" placeholder="Warehouse name in Delhivery"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Pickup Pincode</label>
+                <input v-model="providerForm.pickup_pincode" type="text" placeholder="395010"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="mb-1 block text-sm font-medium text-slate-700">Pickup Address</label>
+                <input v-model="providerForm.dhl_pickup_address" type="text" placeholder="Full warehouse address"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Seller Name</label>
+                <input v-model="providerForm.dhl_seller_name" type="text" placeholder="Business name"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Shipping Mode</label>
+                <select v-model="providerForm.dhl_shipping_mode"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none">
+                  <option>Surface</option>
+                  <option>Express</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Length (cm)</label>
+                <input v-model="providerForm.default_length" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Width (cm)</label>
+                <input v-model="providerForm.default_width" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Default Height (cm)</label>
+                <input v-model="providerForm.default_height" type="number" min="1"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center gap-3">
+                <input type="checkbox" v-model="providerForm.dhl_use_staging" class="h-4 w-4 rounded" />
+                <span class="text-sm font-medium text-slate-700">Use Staging (testing)</span>
+              </div>
+            </div>
+          </template>
 
-          <div class="flex gap-2">
+          <!-- ── Manual — no config needed ── -->
+          <template v-else>
+            <p class="text-sm text-slate-500">No credentials or settings required for Manual shipping.</p>
+          </template>
+
+          <div class="flex gap-2 pt-1">
             <button @click="saveProvider" :disabled="isBusy"
               class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
               {{ isBusy ? 'Saving…' : 'Save' }}

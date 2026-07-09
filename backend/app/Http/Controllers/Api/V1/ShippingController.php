@@ -33,7 +33,9 @@ class ShippingController extends Controller
             destinationState:   $data['state'] ?? '',
         );
 
-        $rates = $this->engine->availableMethods($rateRequest);
+        // Return no rates for pincodes not in any configured zone
+        $zone  = $this->engine->resolveZone($data['pincode'], $data['state'] ?? '');
+        $rates = $zone !== null ? $this->engine->availableMethods($rateRequest) : [];
 
         return response()->json([
             'rates' => array_map(fn($r) => [
@@ -53,8 +55,9 @@ class ShippingController extends Controller
     /**
      * Check whether delivery is available to a given pincode.
      *
-     * Serviceability is determined by whether any active shipping method
-     * has a rate rule covering this pincode (zone-specific or catch-all).
+     * Serviceable only when the pincode explicitly resolves to a configured zone.
+     * Catch-all rates (zone_id = null) do not count — admin must add the pincode
+     * or state to a zone for it to pass this check.
      *
      * Public endpoint — no auth required.
      */
@@ -65,15 +68,8 @@ class ShippingController extends Controller
             'state'   => ['nullable', 'string', 'max:100'],
         ]);
 
-        $rateRequest = new RateRequest(
-            weightKg:           0.1,
-            orderAmount:        0,
-            destinationPincode: $data['pincode'],
-            destinationState:   $data['state'] ?? '',
-        );
-
-        $methods      = $this->engine->availableMethods($rateRequest);
-        $serviceable  = count($methods) > 0;
+        $zone        = $this->engine->resolveZone($data['pincode'], $data['state'] ?? '');
+        $serviceable = $zone !== null;
 
         return response()->json([
             'pincode'     => $data['pincode'],

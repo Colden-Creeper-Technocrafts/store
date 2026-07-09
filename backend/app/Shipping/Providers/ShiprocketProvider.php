@@ -55,7 +55,7 @@ class ShiprocketProvider extends AbstractShippingProvider
             $couriers = $data['data']['available_courier_companies'] ?? [];
 
             return collect($couriers)
-                ->filter(fn($c) => ($c['availability'] ?? 0) == 1)
+                ->filter(fn($c) => ($c['blocked'] ?? 1) == 0)
                 ->sortBy('rate')
                 ->map(fn($c) => new RateResponse(
                     methodCode:   'shiprocket_' . ($c['courier_company_id'] ?? $c['id']),

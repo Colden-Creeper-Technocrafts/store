@@ -1,199 +1,217 @@
 <script setup lang="ts">
-const categories = [
-  {
-    id: 1,
-    name: 'Fresh Vegetables',
-    itemCount: '84 items',
-    note: 'Farm direct daily harvest',
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 2,
-    name: 'Fruits',
-    itemCount: '63 items',
-    note: 'Seasonal premium quality',
-    image: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 3,
-    name: 'Dairy & Bread',
-    itemCount: '42 items',
-    note: 'Milk, curd, cheese, butter',
-    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 4,
-    name: 'Bakery',
-    itemCount: '29 items',
-    note: 'Bread, buns, pastries',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 5,
-    name: 'Snacks',
-    itemCount: '117 items',
-    note: 'Healthy and family packs',
-    image: 'https://images.unsplash.com/photo-1585238342024-78d387f4a707?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 6,
-    name: 'Home Essentials',
-    itemCount: '91 items',
-    note: 'Cleaning and care products',
-    image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=900&q=80'
-  }
-]
+import { onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  useStorefront,
+  loadStoreCategories,
+  loadStoreProducts,
+  loadStoreCoupons,
+  productsStore,
+  formatPrice,
+} from '../../services/storefront'
+import { useAuthStore } from '../../stores/auth'
+import { useCartStore } from '../../stores/cart'
 
-const freshPicks = [
-  {
-    id: 1,
-    name: 'Organic Spinach Bundle',
-    unit: '250g',
-    price: '$2.49',
-    tag: 'Fresh Today',
-    image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 2,
-    name: 'Alphonso Mangoes',
-    unit: '1kg',
-    price: '$8.90',
-    tag: 'Season Special',
-    image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 3,
-    name: 'Vanilla Yogurt Cup',
-    unit: '500g',
-    price: '$4.20',
-    tag: 'Best Value',
-    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 4,
-    name: 'Whole Wheat Bread',
-    unit: '400g',
-    price: '$2.10',
-    tag: 'Daily Essential',
-    image: 'https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 5,
-    name: 'Greek Yogurt',
-    unit: '500g',
-    price: '$5.40',
-    tag: 'Protein Pick',
-    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=80'
-  },
-  {
-    id: 6,
-    name: 'Mixed Dry Fruits',
-    unit: '300g',
-    price: '$9.80',
-    tag: 'Top Seller',
-    image: 'https://images.unsplash.com/photo-1599719590328-2eb3f11b6e36?auto=format&fit=crop&w=900&q=80'
-  }
-]
+const router    = useRouter()
+const authStore = useAuthStore()
+const cartStore = useCartStore()
 
-const servicePoints = [
-  { id: 1, title: '2-Hour Delivery', description: 'Express delivery slots in selected areas.' },
-  { id: 2, title: 'Daily Price Drops', description: 'Fresh deals updated every morning.' },
-  { id: 3, title: 'No-Risk Returns', description: 'Quality issue? Easy replacement at doorstep.' }
-]
+const {
+  categories, categoriesLoaded,
+  liveCoupons, couponsLoaded,
+  storeName,
+  storeBannerImage, storeBannerTitle, storeBannerText,
+} = useStorefront()
+
+const { products, productsLoaded } = productsStore()
+
+// Top-level categories only (no children), up to 6
+const featuredCategories = computed(() =>
+  categories.value.filter(c => c.image).slice(0, 6)
+)
+
+// Latest 6 products by id
+const newProducts = computed(() =>
+  [...products.value]
+    .sort((a, b) => (b.id ?? 0) - (a.id ?? 0))
+    .slice(0, 6)
+)
+
+function goToCategory(slug: string) {
+  router.push({ path: '/store', query: { category: slug } })
+}
+
+function goToProduct(slug: string | null | undefined) {
+  if (slug) router.push(`/product/${slug}`)
+}
+
+async function addToCart(product: typeof products.value[number]) {
+  if (authStore.isCustomer) {
+    await cartStore.add(product.id, 1)
+  } else {
+    cartStore.addGuest({
+      id:        product.id,
+      name:      product.name,
+      sku:       product.sku ?? null,
+      price:     Number(product.sale_price ?? product.price ?? 0),
+      sale_price: product.sale_price != null ? Number(product.sale_price) : null,
+      image_url: product.image ?? '/images/product-placeholder.svg',
+      stock:     product.quantity ?? null,
+    })
+  }
+}
+
+const formatDiscount = (type: string, value: number) =>
+  type === 'percentage' ? `${value}% OFF` : `${formatPrice(value)} OFF`
+
+const formatDate = (iso: string | null) => {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+onMounted(async () => {
+  await Promise.all([loadStoreCategories(), loadStoreProducts(), loadStoreCoupons()])
+})
 </script>
 
 <template>
   <div class="space-y-8 text-emerald-950">
+
+    <!-- Hero -->
     <section class="hero-grid grid gap-6 border border-emerald-300 bg-emerald-900 px-6 py-10 text-white lg:grid-cols-[1.2fr_0.8fr] lg:px-10">
       <div class="space-y-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">Fresh Grocery Delivered</p>
-        <h1 class="text-4xl leading-tight sm:text-5xl">Healthy Groceries For Everyday Living</h1>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">
+          {{ storeName || 'Fresh Grocery Delivered' }}
+        </p>
+        <h1 class="text-4xl leading-tight sm:text-5xl">
+          {{ storeBannerTitle || 'Healthy Groceries For Everyday Living' }}
+        </h1>
         <p class="max-w-2xl text-emerald-50/90">
-          Shop vegetables, fruits, dairy, snacks, and home essentials in one place. Fast delivery, trusted quality, and fair pricing every day.
+          {{ storeBannerText || 'Shop vegetables, fruits, dairy, snacks, and home essentials in one place.' }}
         </p>
         <div class="flex flex-col gap-3 sm:flex-row">
-          <button class="border border-emerald-100 bg-emerald-100 px-6 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-white">
+          <router-link
+            to="/store"
+            class="inline-block border border-emerald-100 bg-emerald-100 px-6 py-3 text-sm font-semibold text-emerald-900 transition hover:bg-white"
+          >
             Start Shopping
-          </button>
-          <button class="border border-emerald-100/80 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800">
-            View Today's Offers
-          </button>
+          </router-link>
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3 self-start">
         <div
           class="col-span-2 min-h-[150px] border border-emerald-200/50 bg-cover bg-center"
-          style="background-image: linear-gradient(rgba(6, 78, 59, 0.35), rgba(6, 78, 59, 0.35)), url('https://images.unsplash.com/photo-1543168256-418811576931?auto=format&fit=crop&w=1200&q=80');"
+          :style="storeBannerImage
+            ? { backgroundImage: `linear-gradient(rgba(6,78,59,.35),rgba(6,78,59,.35)),url(${storeBannerImage})` }
+            : { backgroundImage: `linear-gradient(rgba(6,78,59,.35),rgba(6,78,59,.35)),url('https://images.unsplash.com/photo-1543168256-418811576931?auto=format&fit=crop&w=1200&q=80')` }"
         ></div>
         <div class="border border-emerald-200/50 bg-emerald-800/80 p-4">
-          <p class="text-xs uppercase tracking-[0.14em] text-emerald-200">Delivery</p>
-          <p class="mt-2 text-2xl">2 hrs</p>
-        </div>
-        <div class="border border-emerald-200/50 bg-emerald-800/80 p-4">
           <p class="text-xs uppercase tracking-[0.14em] text-emerald-200">Categories</p>
-          <p class="mt-2 text-2xl">60+</p>
+          <p class="mt-2 text-2xl">{{ categoriesLoaded ? categories.length : '…' }}</p>
         </div>
         <div class="border border-emerald-200/50 bg-emerald-800/80 p-4">
           <p class="text-xs uppercase tracking-[0.14em] text-emerald-200">Products</p>
-          <p class="mt-2 text-2xl">2,300+</p>
-        </div>
-        <div class="border border-emerald-200/50 bg-emerald-800/80 p-4">
-          <p class="text-xs uppercase tracking-[0.14em] text-emerald-200">Avg Savings</p>
-          <p class="mt-2 text-2xl">18%</p>
+          <p class="mt-2 text-2xl">{{ productsLoaded ? products.length : '…' }}</p>
         </div>
       </div>
     </section>
 
+    <!-- Categories -->
     <section class="border border-emerald-200 bg-white p-6 sm:p-8">
       <div class="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Shop By Category</p>
           <h2 class="mt-2 text-3xl text-emerald-950">Everything You Need, Daily</h2>
         </div>
-        <button class="self-start border border-emerald-300 bg-white px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-50">
+        <router-link
+          to="/store"
+          class="self-start border border-emerald-300 bg-white px-5 py-2 text-sm font-semibold text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-50"
+        >
           Browse All
-        </button>
+        </router-link>
       </div>
 
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <!-- Loading skeletons -->
+      <div v-if="!categoriesLoaded" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div
+          v-for="i in 6" :key="i"
+          class="h-32 animate-pulse border border-emerald-100 bg-emerald-50"
+        ></div>
+      </div>
+
+      <!-- Category cards -->
+      <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <article
-          v-for="category in categories"
+          v-for="category in featuredCategories"
           :key="category.id"
-          class="relative overflow-hidden border border-emerald-200 p-5 transition hover:border-emerald-400"
+          @click="goToCategory(category.slug)"
+          class="relative cursor-pointer overflow-hidden border border-emerald-200 p-5 transition hover:border-emerald-400"
         >
-          <div class="absolute inset-0 bg-cover bg-center" :style="{ backgroundImage: `url(${category.image})` }"></div>
+          <div
+            class="absolute inset-0 bg-cover bg-center"
+            :style="{ backgroundImage: `url(${category.image})` }"
+          ></div>
           <div class="category-overlay absolute inset-0"></div>
           <div class="relative z-10">
-            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-100">{{ category.itemCount }}</p>
             <h3 class="mt-2 text-xl text-white">{{ category.name }}</h3>
-            <p class="mt-2 text-sm text-emerald-50">{{ category.note }}</p>
+            <p v-if="category.description" class="mt-2 text-sm text-emerald-50">{{ category.description }}</p>
           </div>
         </article>
       </div>
     </section>
 
+    <!-- New Products + Coupons -->
     <section class="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-      <div class="border border-emerald-200 bg-white p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Fresh Picks</p>
-        <h2 class="mt-2 text-3xl text-emerald-950">Trending This Week</h2>
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+      <!-- New products -->
+      <div class="border border-emerald-200 bg-white p-6 sm:p-8">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">New Arrivals</p>
+        <h2 class="mt-2 text-3xl text-emerald-950">Just Added</h2>
+
+        <!-- Loading skeletons -->
+        <div v-if="!productsLoaded" class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div v-for="i in 6" :key="i" class="h-40 animate-pulse border border-emerald-100 bg-emerald-50"></div>
+        </div>
+
+        <p v-else-if="newProducts.length === 0" class="mt-4 text-sm text-emerald-600">
+          No products yet.
+        </p>
+
+        <div v-else class="mt-5 grid gap-3 sm:grid-cols-2">
           <article
-            v-for="product in freshPicks"
+            v-for="product in newProducts"
             :key="product.id"
             class="border border-emerald-200 bg-emerald-50/50 p-4 transition hover:border-emerald-400 hover:bg-emerald-50"
           >
             <div
-              class="mb-3 h-28 bg-cover bg-center"
-              :style="{ backgroundImage: `linear-gradient(rgba(4, 120, 87, 0.15), rgba(4, 120, 87, 0.15)), url(${product.image})` }"
+              @click="goToProduct(product.slug)"
+              class="mb-3 h-28 cursor-pointer bg-cover bg-center bg-emerald-100"
+              :style="product.image
+                ? { backgroundImage: `linear-gradient(rgba(4,120,87,.15),rgba(4,120,87,.15)),url(${product.image})` }
+                : {}"
             ></div>
-            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">{{ product.tag }}</p>
-            <h3 class="mt-2 text-lg text-emerald-950">{{ product.name }}</h3>
-            <p class="mt-1 text-sm text-emerald-800">{{ product.unit }}</p>
+            <p v-if="product.category_name" class="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+              {{ product.category_name }}
+            </p>
+            <h3
+              @click="goToProduct(product.slug)"
+              class="mt-2 cursor-pointer text-lg text-emerald-950 hover:text-emerald-700 line-clamp-1"
+            >
+              {{ product.name }}
+            </h3>
             <div class="mt-4 flex items-center justify-between">
-              <p class="text-2xl text-emerald-950">{{ product.price }}</p>
-              <button class="border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-100">
+              <div>
+                <p class="text-xl text-emerald-950">{{ formatPrice(product.sale_price ?? product.price ?? 0) }}</p>
+                <p v-if="product.sale_price != null" class="text-xs text-emerald-500 line-through">
+                  {{ formatPrice(product.price ?? 0) }}
+                </p>
+              </div>
+              <button
+                @click="addToCart(product)"
+                :disabled="product.quantity === 0"
+                class="border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-emerald-900 transition hover:border-emerald-500 hover:bg-emerald-100 disabled:opacity-40"
+              >
                 Add
               </button>
             </div>
@@ -201,36 +219,45 @@ const servicePoints = [
         </div>
       </div>
 
+      <!-- Coupons / Deals -->
       <div class="border border-emerald-200 bg-emerald-50 p-6 sm:p-8">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Saver Zone</p>
-        <h2 class="mt-2 text-3xl text-emerald-950">Today's Grocery Deals</h2>
-        <div class="mt-6 space-y-3">
-          <div class="border border-emerald-200 bg-white p-4">
-            <p class="text-sm font-semibold text-emerald-900">Buy 1 Get 1</p>
-            <p class="mt-1 text-sm text-emerald-800">Selected juices and breakfast cereals</p>
-          </div>
-          <div class="border border-emerald-200 bg-white p-4">
-            <p class="text-sm font-semibold text-emerald-900">Flat 20% Off</p>
-            <p class="mt-1 text-sm text-emerald-800">Fresh vegetables combo packs</p>
-          </div>
-          <div class="border border-emerald-200 bg-white p-4">
-            <p class="text-sm font-semibold text-emerald-900">Weekend Mega Cart</p>
-            <p class="mt-1 text-sm text-emerald-800">Save extra $10 on orders over $85</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Active Offers</p>
+        <h2 class="mt-2 text-3xl text-emerald-950">Today's Deals</h2>
+
+        <div v-if="!couponsLoaded" class="mt-6 space-y-3">
+          <div v-for="i in 3" :key="i" class="h-16 animate-pulse border border-emerald-100 bg-white"></div>
+        </div>
+
+        <div v-else-if="liveCoupons.length === 0" class="mt-6">
+          <p class="text-sm text-emerald-600">No active offers right now. Check back soon.</p>
+        </div>
+
+        <div v-else class="mt-6 space-y-3">
+          <div
+            v-for="coupon in liveCoupons"
+            :key="coupon.code"
+            class="border border-emerald-200 bg-white p-4"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="text-sm font-semibold text-emerald-900">{{ formatDiscount(coupon.discount_type, coupon.discount_value) }}</p>
+                <p v-if="coupon.description" class="mt-1 text-sm text-emerald-800">{{ coupon.description }}</p>
+                <p v-if="coupon.min_order_amount" class="mt-1 text-xs text-emerald-600">
+                  Min. order {{ formatPrice(coupon.min_order_amount) }}
+                </p>
+              </div>
+              <span class="shrink-0 rounded bg-emerald-100 px-2 py-1 text-xs font-mono font-semibold text-emerald-800">
+                {{ coupon.code }}
+              </span>
+            </div>
+            <p v-if="coupon.expires_at" class="mt-2 text-xs text-emerald-500">
+              Expires {{ formatDate(coupon.expires_at) }}
+            </p>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="grid gap-3 sm:grid-cols-3">
-      <article
-        v-for="point in servicePoints"
-        :key="point.id"
-        class="border border-emerald-200 bg-white p-6"
-      >
-        <h3 class="text-lg text-emerald-950">{{ point.title }}</h3>
-        <p class="mt-2 text-sm text-emerald-800">{{ point.description }}</p>
-      </article>
-    </section>
   </div>
 </template>
 
@@ -243,5 +270,12 @@ const servicePoints = [
 
 .category-overlay {
   background: linear-gradient(160deg, rgba(6, 78, 59, 0.35), rgba(6, 78, 59, 0.82));
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
