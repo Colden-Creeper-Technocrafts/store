@@ -320,15 +320,34 @@ class OrderRepository implements OrderRepositoryInterface
     public function updateStatus(Order $order, string $status, ?int $changedBy = null, ?string $note = null): Order
     {
         $from = $order->status;
-        $order->update(['status' => $status]);
 
-        OrderStatusHistory::create([
-            'order_id'   => $order->id,
-            'from_status'=> $from,
-            'to_status'  => $status,
-            'changed_by' => $changedBy,
-            'note'       => $note,
-        ]);
+        DB::transaction(function () use ($order, $status, $from, $changedBy, $note) {
+            $order->update(['status' => $status]);
+
+            OrderStatusHistory::create([
+                'order_id'    => $order->id,
+                'from_status' => $from,
+                'to_status'   => $status,
+                'changed_by'  => $changedBy,
+                'note'        => $note,
+            ]);
+
+            // Restore stock when an order is cancelled (only once — not if already cancelled)
+            if ($status === 'cancelled' && $from !== 'cancelled') {
+                $order->loadMissing('items');
+                foreach ($order->items as $item) {
+                    if ($item->product_variant_id) {
+                        DB::table('product_variants')
+                            ->where('id', $item->product_variant_id)
+                            ->increment('quantity', $item->quantity);
+                    } else {
+                        DB::table('products')
+                            ->where('id', $item->product_id)
+                            ->increment('quantity', $item->quantity);
+                    }
+                }
+            }
+        });
 
         $updated = $order->fresh(['items', 'statusHistory.changedBy']);
         $this->notifications->notifyStatusChanged($updated, $from);
