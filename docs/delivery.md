@@ -100,33 +100,42 @@ APP_NAME="Client Store Name"          # shown in emails and Razorpay modal
 APP_ENV=production
 APP_KEY=                              # generated in next step
 APP_DEBUG=false
-APP_URL=http://localhost              # change to client domain in production
+APP_URL=https://api.clientdomain.com  # API subdomain, not the frontend domain
+
+# ── Storefront ────────────────────────────────────────────────────────────
+STOREFRONT_NAME="Client Store Name"   # displayed on storefront
+STOREFRONT_LAYOUT=ladies              # ladies | grocery
 
 # ── Database ──────────────────────────────────────────────────────────────
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=store                    # database name from step 3
-DB_USERNAME=root                     # or store_user
-DB_PASSWORD=                         # MySQL password
+DB_DATABASE=store                     # database name from step 3
+DB_USERNAME=root                      # or store_user
+DB_PASSWORD=                          # MySQL password
 
-# ── Mail (fill in section 11) ──────────────────────────────────────────────
+# ── Session ───────────────────────────────────────────────────────────────
+SESSION_DRIVER=database
+SESSION_SECURE_COOKIE=true            # required for HTTPS
+
+# ── Mail (fill in section 11) ─────────────────────────────────────────────
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
+MAIL_ENCRYPTION=tls
 MAIL_USERNAME=
-MAIL_PASSWORD=
+MAIL_PASSWORD=                        # Gmail App Password (not regular password)
 MAIL_FROM_ADDRESS="noreply@clientdomain.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
-# ── Razorpay (fill in section 9) ─────────────────────────────────────────
+# ── Razorpay (fill in section 9) ──────────────────────────────────────────
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
 
-# ── OTP (fill in section 12) ─────────────────────────────────────────────
+# ── OTP / Fast2SMS (fill in section 12) ───────────────────────────────────
 USE_STATIC_OTP=0
-STATIC_OTP=123456
+FAST2SMS_API_KEY=                     # from fast2sms.com dashboard
 ```
 
 ### 4c. Generate app key
@@ -166,13 +175,18 @@ This seeds:
 - Shipping zones (Metro Cities, All India) with default rates
 - The admin user
 
-### 4f. Set permissions (Linux only)
+### 4f. Link storage (all environments)
+```bash
+php artisan storage:link
+```
+
+### 4g. Set permissions (Linux only)
 ```bash
 chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 ```
 
-### 4g. Cache config for production
+### 4h. Cache config for production
 ```bash
 php artisan config:cache
 php artisan route:cache
@@ -311,16 +325,24 @@ RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxx
 ```
 
 ### Set up Webhook (for payment.captured fallback)
-1. In Razorpay Dashboard → **Settings → Webhooks**
-2. Add URL: `https://clientdomain.com/api/v1/payments/razorpay/webhook`
+1. In Razorpay Dashboard → **Settings → Webhooks** (stay in the same mode — Test or Live)
+2. Add URL: `https://api.clientdomain.com/api/v1/payments/razorpay/webhook`
+   > Must use `https://` and the **API subdomain** (`api.`), not the frontend domain
 3. Select event: `payment.captured`
 4. Set a webhook secret and add it to `.env`:
    ```ini
    RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
    ```
+5. Run `php artisan config:clear` after updating `.env`
+
+### Switch to Live keys before go-live
+```ini
+RAZORPAY_KEY_ID=rzp_live_xxxxxxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxx
+```
 
 > **Test cards:**  
-> Card: `5500 6700 0000 1002` · Expiry: any future date · CVV: any 3 digits
+> Card: `5500 6700 0000 1002` · Expiry: any future date · CVV: any 3 digits · OTP: `1234`
 
 ---
 
@@ -434,14 +456,10 @@ MAIL_FROM_NAME="Client Store Name"
 2. Search "App Passwords" → create one for "Mail"
 3. Use the 16-character code as `MAIL_PASSWORD`
 
-### SMS (Twilio)
+### SMS (Fast2SMS)
 
-In **Admin → Notifications → Settings**, enter:
-```
-Twilio Account SID    → from console.twilio.com
-Twilio Auth Token     → from console.twilio.com
-Twilio From Number    → your Twilio phone number (e.g. +1234567890)
-```
+OTP SMS is sent via Fast2SMS. Add the API key to `.env` (see section 12).  
+No admin panel config needed — it reads directly from `.env`.
 
 ### Enable notification events
 
@@ -464,18 +482,20 @@ STATIC_OTP=123456
 Any phone number will accept `123456` as a valid OTP — no SMS is sent.
 
 ### Production
+
+Fast2SMS is already integrated. Set these in `.env`:
+
 ```ini
 USE_STATIC_OTP=0
+FAST2SMS_API_KEY=your_api_key_here
 ```
-Integrate an SMS provider in `app/Services/OtpService.php → sendSms()`.  
-Currently it only logs the OTP. Recommended providers: MSG91, Fast2SMS, Twilio.
 
-**MSG91 example** (add to `.env`):
-```ini
-MSG91_AUTH_KEY=your_msg91_auth_key
-MSG91_TEMPLATE_ID=your_template_id
-MSG91_SENDER_ID=ECOMST
-```
+**To get the API key:**
+1. Sign up at **fast2sms.com**
+2. Go to **Dev API** in the dashboard
+3. Copy the API key
+
+OTP SMS will be sent automatically on guest checkout. Logs appear in `storage/logs/laravel.log` with the label `Fast2SMS OTP sent`.
 
 ---
 
@@ -485,9 +505,13 @@ Go through every item before handing over to the client.
 
 ### Server & Config
 - [ ] `APP_ENV=production` and `APP_DEBUG=false` in `.env`
-- [ ] `APP_URL` set to the live domain
+- [ ] `APP_URL` set to the API subdomain (e.g. `https://api.clientdomain.com`)
+- [ ] `SESSION_SECURE_COOKIE=true` set (required for HTTPS)
+- [ ] `STOREFRONT_NAME` and `STOREFRONT_LAYOUT` set correctly
+- [ ] `php artisan storage:link` run
 - [ ] `php artisan config:cache` run after any `.env` change
 - [ ] File permissions correct (Linux: `storage/` and `bootstrap/cache/` writable)
+- [ ] PHP upload limits set (`upload_max_filesize=6M`, `post_max_size=10M` in `php.ini`)
 
 ### Database & Data
 - [ ] Migrations ran successfully (`php artisan migrate`)
@@ -513,7 +537,8 @@ Go through every item before handing over to the client.
 
 ### Notifications
 - [ ] Email SMTP tested — place a test order and confirm email arrives
-- [ ] SMS provider configured (or `USE_STATIC_OTP=0` and SMS provider integrated)
+- [ ] `FAST2SMS_API_KEY` set in `.env` and `USE_STATIC_OTP=0`
+- [ ] Test OTP received on a real phone number
 
 ### Security
 - [ ] Backstore URL (`/backstore/login`) shared only with admin, not publicly linked
