@@ -89,11 +89,46 @@ class ShiprocketProvider extends AbstractShippingProvider
                 );
             }
 
-            $srOrderId  = $orderData['order_id'];
+            $srOrderId    = $orderData['order_id'];
             $srShipmentId = $orderData['shipment_id'] ?? null;
 
-            // Step 2 — assign courier and get AWB
-            $awbData = $this->post('/courier/assign/awb', ['shipment_id' => $srShipmentId]);
+            // Step 2 — pick cheapest available courier for this shipment
+            $courierId = null;
+            try {
+                $svcData  = $this->get('/courier/serviceability/', [
+                    'pickup_postcode'   => $this->setting('pickup_pincode', ''),
+                    'delivery_postcode' => $request->receiverPincode,
+                    'cod'               => 0,
+                    'weight'            => $request->weightKg,
+                    'length'            => $request->lengthCm  ?? $this->setting('default_length', 10),
+                    'breadth'           => $request->widthCm   ?? $this->setting('default_width', 10),
+                    'height'            => $request->heightCm  ?? $this->setting('default_height', 10),
+                ]);
+
+                $cheapest = collect($svcData['data']['available_courier_companies'] ?? [])
+                    ->filter(fn($c) => ($c['blocked'] ?? 1) == 0)
+                    ->sortBy('rate')
+                    ->first();
+
+                $courierId = $cheapest['courier_company_id'] ?? null;
+
+                Log::info('Shiprocket cheapest courier', [
+                    'courier'    => $cheapest['courier_name'] ?? null,
+                    'rate'       => $cheapest['rate'] ?? null,
+                    'courier_id' => $courierId,
+                ]);
+            } catch (Throwable $e) {
+                Log::warning('Shiprocket serviceability check failed — auto-assigning courier', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Step 3 — assign courier and get AWB
+            $awbPayload = ['shipment_id' => $srShipmentId];
+            if ($courierId) {
+                $awbPayload['courier_id'] = $courierId;
+            }
+            $awbData = $this->post('/courier/assign/awb', $awbPayload);
 
             $awbNumber = $awbData['response']['data']['awb_code']
                 ?? $awbData['awb_code']
@@ -110,7 +145,7 @@ class ShiprocketProvider extends AbstractShippingProvider
 
             $courierName = $awbData['response']['data']['courier_name'] ?? null;
 
-            // Step 3 — generate label (best-effort; may not be immediately ready)
+            // Step 4 — generate label (best-effort; may not be immediately ready)
             $labelUrl = null;
             try {
                 $labelData = $this->post('/courier/generate/label', [

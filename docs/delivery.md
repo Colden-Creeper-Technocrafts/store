@@ -101,6 +101,7 @@ APP_ENV=production
 APP_KEY=                              # generated in next step
 APP_DEBUG=false
 APP_URL=https://api.clientdomain.com  # API subdomain, not the frontend domain
+APP_FRONTEND_URL=https://clientdomain.com  # storefront domain — used in email verification links
 
 # ── Storefront ────────────────────────────────────────────────────────────
 STOREFRONT_NAME="Client Store Name"   # displayed on storefront
@@ -506,6 +507,7 @@ Go through every item before handing over to the client.
 ### Server & Config
 - [ ] `APP_ENV=production` and `APP_DEBUG=false` in `.env`
 - [ ] `APP_URL` set to the API subdomain (e.g. `https://api.clientdomain.com`)
+- [ ] `APP_FRONTEND_URL` set to the storefront domain (e.g. `https://clientdomain.com`) — email verification links use this
 - [ ] `SESSION_SECURE_COOKIE=true` set (required for HTTPS)
 - [ ] `STOREFRONT_NAME` and `STOREFRONT_LAYOUT` set correctly
 - [ ] `php artisan storage:link` run
