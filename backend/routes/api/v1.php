@@ -87,6 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/admin/settings/{id}', [AdminSettingsController::class, 'update']);
     Route::post('/admin/settings/{id}/logo', [AdminSettingsController::class, 'uploadLogo']);
     Route::post('/admin/settings/{id}/banner-image', [AdminSettingsController::class, 'uploadBannerImage']);
+    Route::post('/admin/settings/{id}/favicon', [AdminSettingsController::class, 'uploadFavicon']);
 
     // Admin order management
     Route::prefix('admin/orders')->group(function () {

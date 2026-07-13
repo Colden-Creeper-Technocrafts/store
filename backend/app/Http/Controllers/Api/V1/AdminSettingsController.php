@@ -21,7 +21,8 @@ class AdminSettingsController
     {
         $settings = StoreSetting::orderBy('id')->get()->map(function (StoreSetting $s) use ($request) {
             $arr = $s->toArray();
-            $arr['logo_url'] = $this->resolveLogoUrl($s->logo_url, $request);
+            $arr['logo_url']    = $this->resolveLogoUrl($s->logo_url, $request);
+            $arr['favicon_url'] = $this->resolveLogoUrl($s->favicon_url, $request);
             return $arr;
         });
 
@@ -67,9 +68,16 @@ class AdminSettingsController
             $settings->update(['banner_image' => null]);
         }
 
+        // Handle explicit favicon removal (favicon_url: null sent in payload)
+        if ($request->exists('favicon_url') && $request->input('favicon_url') === null) {
+            $this->deleteStoredFile($settings->fresh()->favicon_url);
+            $settings->update(['favicon_url' => null]);
+        }
+
         $fresh = $settings->fresh();
         $arr   = $fresh->toArray();
         $arr['logo_url']     = $this->resolveLogoUrl($fresh->logo_url, $request);
+        $arr['favicon_url']  = $this->resolveLogoUrl($fresh->favicon_url, $request);
         $arr['banner_image'] = $this->resolveLogoUrl($fresh->banner_image, $request);
 
         return response()->json(['settings' => $arr]);
@@ -101,6 +109,28 @@ class AdminSettingsController
 
         return response()->json([
             'logo_url' => $this->resolveLogoUrl($path, $request),
+        ]);
+    }
+
+    public function uploadFavicon(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'favicon' => ['required', 'file', 'mimes:ico,png,jpg,jpeg,svg+xml,svg', 'max:512'],
+        ]);
+
+        $settings = StoreSetting::find($id);
+
+        if (!$settings) {
+            return response()->json(['message' => 'Store settings not found.'], 404);
+        }
+
+        $this->deleteStoredFile($settings->favicon_url);
+
+        $path = $request->file('favicon')->store('favicons', 'public');
+        $settings->update(['favicon_url' => $path]);
+
+        return response()->json([
+            'favicon_url' => $this->resolveLogoUrl($path, $request),
         ]);
     }
 

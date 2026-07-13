@@ -10,10 +10,15 @@ import AdminLayout from './layouts/AdminLayout.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { storeLayout, storeName } = useStorefront()
+const { storeLayout, storeName, storeFavicon } = useStorefront()
 
 watch(storeName, (name) => {
   if (name && name !== 'Store') document.title = name
+}, { immediate: true })
+
+watch(storeFavicon, (url) => {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (link && url) link.href = url
 }, { immediate: true })
 
 const isLoggedIn = computed(() => !!authStore.token)

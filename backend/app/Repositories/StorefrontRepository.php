@@ -11,14 +11,14 @@ class StorefrontRepository implements StorefrontRepositoryInterface
     public function resolveActiveStore(): ?object
     {
         $store = DB::table('store_settings')
-            ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
+            ->select(['id', 'store_name', 'layout', 'logo_url', 'favicon_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
             ->where('is_active', true)
             ->orderBy('id')
             ->first();
 
         if (!$store) {
             $store = DB::table('store_settings')
-                ->select(['id', 'store_name', 'layout', 'logo_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
+                ->select(['id', 'store_name', 'layout', 'logo_url', 'favicon_url', 'tagline', 'banner_image', 'banner_title', 'banner_text', 'currency', 'is_active'])
                 ->orderByDesc('is_active')
                 ->orderBy('id')
                 ->first();

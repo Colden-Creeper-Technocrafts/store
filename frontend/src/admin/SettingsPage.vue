@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { fetchAllSettings, updateSettings, uploadStoreLogo, uploadBannerImage, type StoreSettings } from '../services/adminSettings'
+import { fetchAllSettings, updateSettings, uploadStoreLogo, uploadBannerImage, uploadStoreFavicon, type StoreSettings } from '../services/adminSettings'
 
 const currencies = [
   { code: 'INR', label: 'INR (₹)' },
@@ -28,6 +28,12 @@ const bannerFileInput = ref<HTMLInputElement | null>(null)
 const bannerFile      = ref<File | null>(null)
 const bannerPreview   = ref<string | null>(null)
 const bannerCleared   = ref(false)
+
+// Favicon upload state
+const faviconFileInput = ref<HTMLInputElement | null>(null)
+const faviconFile      = ref<File | null>(null)
+const faviconPreview   = ref<string | null>(null)
+const faviconCleared   = ref(false)
 
 function onLogoSelect(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0] ?? null
@@ -61,6 +67,21 @@ function removeBanner() {
   if (bannerFileInput.value) bannerFileInput.value.value = ''
 }
 
+function onFaviconSelect(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0] ?? null
+  faviconFile.value    = file
+  faviconCleared.value = false
+  if (file) faviconPreview.value = URL.createObjectURL(file)
+}
+
+function removeFavicon() {
+  faviconFile.value        = null
+  faviconPreview.value     = null
+  faviconCleared.value     = true
+  form.value.favicon_url   = ''
+  if (faviconFileInput.value) faviconFileInput.value.value = ''
+}
+
 const form = ref({
   store_name:        '',
   business_type:     '',
@@ -68,6 +89,7 @@ const form = ref({
   store_phone:       '',
   store_description: '',
   logo_url:          '',
+  favicon_url:       '',
   tagline:           '',
   banner_image:      '',
   banner_title:      '',
@@ -76,8 +98,9 @@ const form = ref({
   is_active:         false,
 })
 
-const displayLogo   = computed(() => logoPreview.value   || form.value.logo_url     || null)
-const displayBanner = computed(() => bannerPreview.value || form.value.banner_image || null)
+const displayLogo    = computed(() => logoPreview.value    || form.value.logo_url    || null)
+const displayBanner  = computed(() => bannerPreview.value  || form.value.banner_image || null)
+const displayFavicon = computed(() => faviconPreview.value || form.value.favicon_url  || null)
 
 const dropdownOptions = computed(() =>
   allSettings.value.map((s) => ({
@@ -98,6 +121,7 @@ function populateForm(s: StoreSettings) {
   form.value.store_phone       = s.store_phone       ?? ''
   form.value.store_description = s.store_description ?? ''
   form.value.logo_url          = s.logo_url          ?? ''
+  form.value.favicon_url       = s.favicon_url       ?? ''
   form.value.tagline           = s.tagline           ?? ''
   form.value.banner_image      = s.banner_image      ?? ''
   form.value.banner_title      = s.banner_title      ?? ''
@@ -113,6 +137,10 @@ function populateForm(s: StoreSettings) {
   bannerPreview.value = null
   bannerCleared.value = false
   if (bannerFileInput.value) bannerFileInput.value.value = ''
+  faviconFile.value    = null
+  faviconPreview.value = null
+  faviconCleared.value = false
+  if (faviconFileInput.value) faviconFileInput.value.value = ''
 }
 
 watch(selectedId, (id) => {
@@ -163,10 +191,20 @@ async function save() {
       if (bannerFileInput.value) bannerFileInput.value.value = ''
     }
 
-    const logoWasCleared   = logoCleared.value
-    const bannerWasCleared = bannerCleared.value
-    if (logoWasCleared)   logoCleared.value   = false
-    if (bannerWasCleared) bannerCleared.value = false
+    // Upload favicon if a new file was selected
+    if (faviconFile.value) {
+      form.value.favicon_url = await uploadStoreFavicon(selectedId.value, faviconFile.value)
+      faviconFile.value    = null
+      faviconPreview.value = null
+      if (faviconFileInput.value) faviconFileInput.value.value = ''
+    }
+
+    const logoWasCleared    = logoCleared.value
+    const bannerWasCleared  = bannerCleared.value
+    const faviconWasCleared = faviconCleared.value
+    if (logoWasCleared)    logoCleared.value    = false
+    if (bannerWasCleared)  bannerCleared.value  = false
+    if (faviconWasCleared) faviconCleared.value = false
 
     const payload = {
       store_name:        form.value.store_name,
@@ -179,8 +217,9 @@ async function save() {
       banner_text:       form.value.banner_text    || null,
       currency:          form.value.currency,
       is_active:         form.value.is_active,
-      ...(logoWasCleared   ? { logo_url:     null } : {}),
-      ...(bannerWasCleared ? { banner_image: null } : {}),
+      ...(logoWasCleared    ? { logo_url:     null } : {}),
+      ...(bannerWasCleared  ? { banner_image: null } : {}),
+      ...(faviconWasCleared ? { favicon_url:  null } : {}),
     }
 
     const updated = await updateSettings(selectedId.value, payload)
@@ -365,6 +404,51 @@ async function save() {
                   class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
                 <p class="mt-1 text-xs text-slate-400">Short text shown beside the logo in the header.</p>
+              </div>
+            </div>
+
+            <!-- Favicon -->
+            <div>
+              <label class="block text-sm font-semibold text-slate-900 mb-2">Favicon</label>
+              <p class="mb-3 text-xs text-slate-400">The small icon shown in browser tabs. PNG or ICO · Max 512 KB · Recommended 32 × 32 px</p>
+
+              <input
+                ref="faviconFileInput"
+                type="file"
+                accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml"
+                class="hidden"
+                @change="onFaviconSelect"
+              />
+
+              <div class="flex items-center gap-4">
+                <div
+                  class="relative flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50"
+                  :class="displayFavicon ? 'border-solid border-slate-300 bg-white' : ''"
+                >
+                  <img
+                    v-if="displayFavicon"
+                    :src="displayFavicon"
+                    alt="Favicon preview"
+                    class="h-8 w-8 object-contain"
+                  />
+                  <span v-else class="text-xl">🌐</span>
+
+                  <button
+                    v-if="displayFavicon"
+                    type="button"
+                    @click="removeFavicon"
+                    class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-xs text-rose-600 hover:bg-rose-200"
+                    title="Remove favicon"
+                  >✕</button>
+                </div>
+
+                <button
+                  type="button"
+                  @click="faviconFileInput?.click()"
+                  class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {{ displayFavicon ? 'Replace Favicon' : 'Upload Favicon' }}
+                </button>
               </div>
             </div>
           </div>

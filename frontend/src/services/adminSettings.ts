@@ -15,6 +15,7 @@ export type StoreSettings = {
   store_phone: string | null
   store_description: string | null
   logo_url: string | null
+  favicon_url: string | null
   tagline: string | null
   banner_image: string | null
   banner_title: string | null
@@ -32,6 +33,7 @@ export type StoreSettingsPayload = {
   store_phone?: string | null
   store_description?: string | null
   logo_url?: string | null
+  favicon_url?: string | null
   tagline?: string | null
   banner_image?: string | null
   banner_title?: string | null
@@ -58,6 +60,15 @@ export const uploadStoreLogo = async (id: number, file: File): Promise<string> =
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return response.data.logo_url
+}
+
+export const uploadStoreFavicon = async (id: number, file: File): Promise<string> => {
+  const formData = new FormData()
+  formData.append('favicon', file)
+  const response = await api.post(`/admin/settings/${id}/favicon`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data.favicon_url
 }
 
 export const uploadBannerImage = async (id: number, file: File): Promise<string> => {

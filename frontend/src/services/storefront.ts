@@ -24,6 +24,7 @@ export type StorefrontCoupon = {
 const storeLayout = ref<StoreLayoutType>('ladies')
 const storeName = ref('Store')
 const storeLogo = ref<string | null>(null)
+const storeFavicon = ref<string | null>(null)
 const storeTagline = ref<string | null>(null)
 const storeBannerImage = ref<string | null>(null)
 const storeBannerTitle = ref<string | null>(null)
@@ -98,7 +99,8 @@ export const loadStorefront = async (force = false): Promise<void> => {
 
       storeLayout.value = normalizeLayout(store.layout)
       storeName.value = typeof store.name === 'string' && store.name.trim() ? store.name : 'Store'
-      storeLogo.value = typeof store.logo_url === 'string' && store.logo_url.trim() ? store.logo_url : null
+      storeLogo.value    = typeof store.logo_url    === 'string' && store.logo_url.trim()    ? store.logo_url    : null
+      storeFavicon.value = typeof store.favicon_url === 'string' && store.favicon_url.trim() ? store.favicon_url : null
       storeTagline.value = typeof store.tagline === 'string' && store.tagline.trim() ? store.tagline : null
       storeBannerImage.value = typeof store.banner_image === 'string' && store.banner_image.trim() ? store.banner_image : null
       storeBannerTitle.value = typeof store.banner_title === 'string' && store.banner_title.trim() ? store.banner_title : null
@@ -123,6 +125,7 @@ export const useStorefront = () => {
     storeLayout,
     storeName,
     storeLogo,
+    storeFavicon,
     storeTagline,
     storeBannerImage,
     storeBannerTitle,

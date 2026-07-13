@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $store_phone
  * @property string|null $store_description
  * @property string|null $logo_url
+ * @property string|null $favicon_url
  * @property string|null $tagline
  * @property string|null $banner_image
  * @property string|null $banner_title
@@ -31,6 +32,7 @@ class StoreSetting extends Model
         'store_phone',
         'store_description',
         'logo_url',
+        'favicon_url',
         'tagline',
         'banner_image',
         'banner_title',

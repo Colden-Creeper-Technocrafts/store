@@ -66,6 +66,7 @@ class StorefrontController extends Controller
                 'name'         => (string) ($store->store_name ?? 'Kumkum Novelty Store'),
                 'layout'       => $layout,
                 'logo_url'     => $this->resolveLogoUrl($store->logo_url ?? null, $request),
+                'favicon_url'  => $this->resolveLogoUrl($store->favicon_url ?? null, $request),
                 'tagline'      => $store->tagline ?? null,
                 'banner_image' => $this->resolveLogoUrl($store->banner_image ?? null, $request),
                 'banner_title' => $store->banner_title ?? null,
