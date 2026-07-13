@@ -90,8 +90,8 @@ function closeDetail() {
   selectedCustomer.value = null
 }
 
-function fmt(val: number | null) {
-  return val != null ? `₹${val.toFixed(2)}` : '₹0.00'
+function fmt(val: number | string | null) {
+  return val != null ? `₹${Number(val).toFixed(2)}` : '₹0.00'
 }
 
 function fmtDate(iso: string) {

@@ -6,7 +6,7 @@ export type AdminCustomer = {
   email: string
   created_at: string
   orders_count: number
-  orders_sum_total: number | null
+  orders_sum_total: string | number | null
 }
 
 export type AdminCustomerDetail = AdminCustomer & {
@@ -14,7 +14,7 @@ export type AdminCustomerDetail = AdminCustomer & {
     id: number
     status: string
     payment_status: string
-    total: number
+    total: string | number
     created_at: string
   }[]
 }
