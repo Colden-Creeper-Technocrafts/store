@@ -41,4 +41,8 @@ return [
         'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
     ],
 
+    'fast2sms' => [
+        'api_key' => env('FAST2SMS_API_KEY'),
+    ],
+
 ];

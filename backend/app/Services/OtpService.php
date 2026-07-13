@@ -6,6 +6,7 @@ use App\Mail\EmailVerificationMail;
 use App\Models\OtpVerification;
 use App\Models\User;
 use App\Models\Order;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -197,9 +198,36 @@ class OtpService
 
     private function sendSms(string $phone, string $otp): void
     {
-        // TODO: integrate SMS provider (MSG91, Twilio, Fast2SMS, etc.)
-        // For local dev, OTP is logged below.
         Log::info("OTP for {$phone}: {$otp}");
+
+        $apiKey = config('services.fast2sms.api_key');
+
+        if (!$apiKey) {
+            Log::warning('Fast2SMS API key not configured — OTP not sent via SMS.');
+            return;
+        }
+
+        try {
+            $response = Http::withHeaders(['authorization' => $apiKey])
+                ->get('https://www.fast2sms.com/dev/bulkV2', [
+                    'variables_values' => $otp,
+                    'route'            => 'otp',
+                    'numbers'          => $phone,
+                ]);
+
+            $body = $response->json();
+
+            if (!($body['return'] ?? false)) {
+                Log::warning('Fast2SMS send failed', [
+                    'phone'    => $phone,
+                    'response' => $body,
+                ]);
+            } else {
+                Log::info('Fast2SMS OTP sent', ['phone' => $phone, 'request_id' => $body['request_id'] ?? null]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Fast2SMS exception', ['phone' => $phone, 'error' => $e->getMessage()]);
+        }
     }
 
     private function sendVerificationEmail(string $email, string $token, ?int $orderId): void
