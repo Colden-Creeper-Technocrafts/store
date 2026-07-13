@@ -161,7 +161,7 @@ php artisan db:seed
 
 This seeds:
 - Roles (`Admin`, `Vendor`, `Customer`)
-- Store settings (Ladies + Grocery layouts)
+- One store settings row for this client (one row per client — do not run `db:seed` twice or it will duplicate)
 - Shipping providers (Manual active by default, Shiprocket/Delhivery disabled)
 - Shipping zones (Metro Cities, All India) with default rates
 - The admin user
@@ -245,7 +245,9 @@ Point API subdomain (e.g. `api.clientdomain.com`) to `backend/public/`.
 
 ## 8. Store Settings
 
-Go to **Admin → Settings** and configure:
+### 8a. Configure store details
+
+Go to **Admin → Settings** and fill in:
 
 | Field | What to Enter |
 |---|---|
@@ -254,10 +256,27 @@ Go to **Admin → Settings** and configure:
 | Phone | Support phone number |
 | Address | Business address |
 | Currency | `INR` (or `USD`, `EUR`, etc.) |
-| Logo | Upload client's logo (PNG/JPG, max 3 MB) |
-| Banner Image | Homepage hero image |
 | Banner Title | e.g. "Exclusive Jewellery Collection" |
 | Banner Text | Short tagline |
+
+### 8b. Upload logo
+
+1. In **Admin → Settings**, scroll to the Logo section
+2. Click **Upload Logo** → select a PNG or JPG (max 3 MB)
+3. Click **Save Settings**
+
+### 8c. Upload banner image
+
+1. In **Admin → Settings**, scroll to the Banner section
+2. Click **Upload Banner** → select an image (max 6 MB)
+3. Click **Save Settings**
+
+### 8d. Set up categories
+
+1. Go to **Admin → Categories → Add Category**
+2. Create the top-level categories for the client's product range
+3. Add subcategories as needed
+4. Products can now be assigned to these categories
 
 ### Activate the correct store layout
 
@@ -500,3 +519,5 @@ Go through every item before handing over to the client.
 - [ ] Backstore URL (`/backstore/login`) shared only with admin, not publicly linked
 - [ ] Strong admin password set
 - [ ] `RAZORPAY_WEBHOOK_SECRET` set
+
+

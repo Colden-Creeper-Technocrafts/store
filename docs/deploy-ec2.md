@@ -331,6 +331,29 @@ MAIL_FROM_ADDRESS=noreply@yourdomain.com
 | `php artisan` commands fail | Check `.env` is configured and `composer install` was run |
 | SSH connection refused | Check Security Group inbound rule allows port 22 from your IP |
 | Cannot connect after reboot | Elastic IP may have been released — verify it's still associated |
+| Logo / banner upload fails (422) | PHP upload limits too low — see below |
+
+### PHP Upload Limits
+
+Check and update `/etc/php/8.2/fpm/php.ini`:
+
+```bash
+sudo nano /etc/php/8.2/fpm/php.ini
+```
+
+Set these two values:
+
+```ini
+upload_max_filesize = 6M
+post_max_size = 10M
+```
+
+Then restart PHP-FPM:
+
+```bash
+sudo systemctl restart php8.2-fpm
+sudo systemctl reload apache2
+```
 
 ---
 
@@ -372,3 +395,5 @@ curl http://169.254.169.254/latest/meta-data/instance-type
 > Recommended minimum for production: **t3.small**
 
 Additional costs: Elastic IP (~$3.60/mo if unattached), EBS storage (~$0.08/GB/mo), data transfer, Route 53 (~$0.50/zone/mo).
+
+

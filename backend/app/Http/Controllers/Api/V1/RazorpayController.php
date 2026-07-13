@@ -9,8 +9,10 @@ use App\Models\OtpVerification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Razorpay\Api\Api;
 use Razorpay\Api\Errors\SignatureVerificationError;
+use Throwable;
 
 class RazorpayController extends Controller
 {
@@ -48,11 +50,26 @@ class RazorpayController extends Controller
 
         $amountPaise = (int) round($order->total * 100); // Razorpay requires paise
 
-        $razorpayOrder = $this->api()->order->create([
-            'amount'          => $amountPaise,
-            'currency'        => 'INR',
-            'receipt'         => 'order_' . $order->id,
-            'payment_capture' => 1,
+        try {
+            $razorpayOrder = $this->api()->order->create([
+                'amount'          => $amountPaise,
+                'currency'        => 'INR',
+                'receipt'         => 'order_' . $order->id,
+                'payment_capture' => 1,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Razorpay createOrder failed', [
+                'order_id' => $order->id,
+                'amount'   => $amountPaise,
+                'error'    => $e->getMessage(),
+            ]);
+            return response()->json(['message' => 'Could not initiate payment. Please try again.'], 500);
+        }
+
+        Log::info('Razorpay order created', [
+            'order_id'          => $order->id,
+            'razorpay_order_id' => $razorpayOrder->id,
+            'amount_paise'      => $amountPaise,
         ]);
 
         $order->update(['razorpay_order_id' => $razorpayOrder->id]);
@@ -98,7 +115,13 @@ class RazorpayController extends Controller
                 'razorpay_order_id'   => $data['razorpay_order_id'],
                 'razorpay_signature'  => $data['razorpay_signature'],
             ]);
-        } catch (SignatureVerificationError) {
+        } catch (SignatureVerificationError $e) {
+            Log::warning('Razorpay signature verification failed', [
+                'order_id'            => $order->id,
+                'razorpay_payment_id' => $data['razorpay_payment_id'],
+                'razorpay_order_id'   => $data['razorpay_order_id'],
+                'error'               => $e->getMessage(),
+            ]);
             return response()->json(['message' => 'Payment verification failed. Please contact support.'], 422);
         }
 
@@ -141,12 +164,17 @@ class RazorpayController extends Controller
             $expected  = hash_hmac('sha256', $body, $webhookSecret);
 
             if (!hash_equals($expected, $signature)) {
+                Log::warning('Razorpay webhook: invalid signature', [
+                    'received' => $signature,
+                ]);
                 return response()->json(['message' => 'Invalid signature'], 400);
             }
         }
 
         $event   = $request->input('event');
         $payload = $request->input('payload', []);
+
+        Log::info('Razorpay webhook received', ['event' => $event]);
 
         if ($event === 'payment.captured') {
             $entity          = $payload['payment']['entity'] ?? [];
@@ -155,12 +183,28 @@ class RazorpayController extends Controller
 
             if ($razorpayOrderId) {
                 $order = Order::where('razorpay_order_id', $razorpayOrderId)->first();
-                if ($order && $order->payment_status !== 'paid') {
+
+                if (!$order) {
+                    Log::warning('Razorpay webhook: order not found', [
+                        'razorpay_order_id' => $razorpayOrderId,
+                        'payment_id'        => $paymentId,
+                    ]);
+                } elseif ($order->payment_status === 'paid') {
+                    Log::info('Razorpay webhook: order already paid, skipping', [
+                        'order_id'          => $order->id,
+                        'razorpay_order_id' => $razorpayOrderId,
+                    ]);
+                } else {
                     $order->update([
                         'status'          => 'confirmed',
                         'payment_status'  => 'paid',
                         'payment_gateway' => 'razorpay',
                         'payment_id'      => $paymentId,
+                    ]);
+                    Log::info('Razorpay webhook: order marked paid', [
+                        'order_id'          => $order->id,
+                        'razorpay_order_id' => $razorpayOrderId,
+                        'payment_id'        => $paymentId,
                     ]);
                 }
             }
