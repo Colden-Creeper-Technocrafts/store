@@ -38,6 +38,15 @@ const propagateSelectionChange = async (): Promise<void> => {
   emit('selected-updated', getSelectedIds())
 }
 
+const selectByIds = async (ids: number[]): Promise<void> => {
+  categoryNodeRefs.value.forEach((node) => {
+    if (node?.selectIfMatches) node.selectIfMatches(ids)
+  })
+  await propagateSelectionChange()
+}
+
+defineExpose({ selectByIds })
+
 const containerClass =
   props.tone === 'grocery'
     ? 'border-emerald-200 bg-white text-emerald-950'

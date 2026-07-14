@@ -65,7 +65,17 @@ const getSelectedIds = (): number[] => {
   return ids
 }
 
-defineExpose({ setSelected, getSelectedIds })
+const selectIfMatches = (ids: number[]) => {
+  if (ids.includes(props.node.id)) {
+    selected.value = true
+    emit('selection-change')
+  }
+  childNodes.value.forEach((childNode) => {
+    if (childNode?.selectIfMatches) childNode.selectIfMatches(ids)
+  })
+}
+
+defineExpose({ setSelected, getSelectedIds, selectIfMatches })
 
 const onCheckboxChange = (): void => {
   setSelected(selected.value)

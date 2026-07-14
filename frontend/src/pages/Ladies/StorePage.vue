@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import CategoryTreeSidebar from '../../components/store/CategoryTreeSidebar.vue'
 import { loadStoreCategories, loadStoreProducts, productsStore, useStorefront, formatPrice } from '../../services/storefront'
 import { useAuthStore } from '../../stores/auth'
@@ -12,7 +12,8 @@ const { products, productsLoaded } = productsStore()
 const loading = computed(() => !categoriesLoaded.value)
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const router = useRouter()
+const route = useRoute()
+const sidebarRef = ref<any>(null)
 const addingId = ref<number | null>(null)
 const addError = ref<string | null>(null)
 const search = ref('')
@@ -69,6 +70,23 @@ const handleAdd = async (product: StorefrontProduct) => {
 
 onMounted(async () => {
   await loadStoreCategories()
+  const slug = route.query.category as string | undefined
+  if (slug) {
+    const findId = (cats: typeof categories.value): number | null => {
+      for (const cat of cats) {
+        if (cat.slug === slug) return cat.id
+        const found = findId(cat.children)
+        if (found) return found
+      }
+      return null
+    }
+    const id = findId(categories.value)
+    if (id) {
+      await nextTick()
+      sidebarRef.value?.selectByIds([id])
+      return
+    }
+  }
   await loadStoreProducts()
 })
 </script>
@@ -76,6 +94,7 @@ onMounted(async () => {
 <template>
   <section class="grid gap-4 lg:grid-cols-[300px_1fr]">
     <CategoryTreeSidebar
+      ref="sidebarRef"
       title="Ladies Categories"
       :categories="categories"
       :loading="loading"

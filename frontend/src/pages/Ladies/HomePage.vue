@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   useStorefront,
   loadStoreCategories,
@@ -8,6 +9,8 @@ import {
   productsStore,
   formatPrice,
 } from '../../services/storefront'
+
+const router = useRouter()
 
 const {
   categories, categoriesLoaded,
@@ -117,7 +120,12 @@ onMounted(async () => {
 
       <!-- Category cards -->
       <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <article v-for="cat in categories" :key="cat.id" class="flex flex-col gap-3">
+        <article
+          v-for="cat in categories"
+          :key="cat.id"
+          class="flex flex-col gap-3 cursor-pointer"
+          @click="router.push({ path: '/store', query: { category: cat.slug } })"
+        >
           <div
             class="collection-card relative overflow-hidden rounded-[1.6rem] border border-stone-200"
             style="min-height: 400px;"
