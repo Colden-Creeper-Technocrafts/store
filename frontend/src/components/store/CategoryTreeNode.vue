@@ -67,12 +67,12 @@ const getSelectedIds = (): number[] => {
 
 const selectIfMatches = (ids: number[]) => {
   if (ids.includes(props.node.id)) {
-    selected.value = true
-    emit('selection-change')
+    setSelected(true)
+  } else {
+    childNodes.value.forEach((childNode) => {
+      if (childNode?.selectIfMatches) childNode.selectIfMatches(ids)
+    })
   }
-  childNodes.value.forEach((childNode) => {
-    if (childNode?.selectIfMatches) childNode.selectIfMatches(ids)
-  })
 }
 
 defineExpose({ setSelected, getSelectedIds, selectIfMatches })
