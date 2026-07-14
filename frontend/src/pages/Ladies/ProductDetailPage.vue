@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { loadStoreProduct, formatPrice, checkPincode, type StorefrontProduct, type StorefrontVariant } from '../../services/storefront'
 import { useAuthStore } from '../../stores/auth'
@@ -19,6 +19,16 @@ const selectedVariant = ref<StorefrontVariant | null>(null)
 
 const hasVariants = computed(() => (product.value?.variants?.length ?? 0) > 0)
 const multipleVariants = computed(() => (product.value?.variants?.length ?? 0) > 1)
+
+const variantImages = computed(() => selectedVariant.value?.images ?? [])
+const activeImageUrl = ref<string | null>(null)
+const displayImage = computed(() => {
+  if (activeImageUrl.value) return activeImageUrl.value
+  const imgs = variantImages.value
+  return imgs.find(img => img.is_primary)?.image_url ?? imgs[0]?.image_url ?? product.value?.image ?? '/images/product-placeholder.svg'
+})
+
+watch(selectedVariant, () => { activeImageUrl.value = null })
 
 const displayPrice = computed(() => {
   if (selectedVariant.value) return Number(selectedVariant.value.price ?? 0)
@@ -88,7 +98,7 @@ const handleAdd = async () => {
         sku: selectedVariant.value?.sku ?? p.sku ?? null,
         price: displayPrice.value,
         sale_price: displaySalePrice.value,
-        image_url: p.image ?? '/images/product-placeholder.svg',
+        image_url: displayImage.value,
         stock: displayQuantity.value ?? null,
       })
     }
@@ -134,13 +144,25 @@ onMounted(async () => {
       <div class="grid gap-8 lg:grid-cols-[480px_1fr]">
 
         <!-- Image -->
-        <div class="overflow-hidden border border-stone-200 bg-stone-50">
-          <img
-            :src="product.image ?? '/images/product-placeholder.svg'"
-            :alt="product.name"
-            class="h-full w-full object-cover"
-            style="min-height: 320px; max-height: 520px;"
-          />
+        <div class="space-y-3">
+          <div class="overflow-hidden border border-stone-200 bg-stone-50">
+            <img
+              :src="displayImage"
+              :alt="product.name"
+              class="h-full w-full object-cover"
+              style="min-height: 320px; max-height: 520px;"
+            />
+          </div>
+          <div v-if="variantImages.length > 1" class="flex gap-2 overflow-x-auto pb-1">
+            <button
+              v-for="img in variantImages"
+              :key="img.id"
+              @click="activeImageUrl = img.image_url"
+              :class="['flex-none rounded border-2 transition', activeImageUrl === img.image_url || (!activeImageUrl && img.is_primary) ? 'border-stone-900' : 'border-stone-200 hover:border-stone-400']"
+            >
+              <img :src="img.image_url" alt="" class="h-16 w-16 object-cover" />
+            </button>
+          </div>
         </div>
 
         <!-- Details -->

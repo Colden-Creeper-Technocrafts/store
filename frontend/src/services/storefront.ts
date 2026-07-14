@@ -46,6 +46,13 @@ const liveCoupons = ref<StorefrontCoupon[]>([])
 const upcomingCoupons = ref<StorefrontCoupon[]>([])
 const couponsLoaded = ref(false)
 
+export type StorefrontVariantImage = {
+  id: number
+  image_url: string
+  is_primary: boolean
+  sort_order: number
+}
+
 export type StorefrontVariant = {
   id: number
   sku?: string | null
@@ -54,6 +61,7 @@ export type StorefrontVariant = {
   quantity: number
   options?: Record<string, string> | null
   is_default: boolean
+  images?: StorefrontVariantImage[]
 }
 
 export type StorefrontProduct = {

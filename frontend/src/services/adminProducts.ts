@@ -29,6 +29,7 @@ export type AdminProductVariant = {
 export type AdminProductImage = {
   id: number
   product_id: number
+  product_variant_id: number
   image: string
   image_url: string
   sort_order: number
@@ -87,10 +88,11 @@ export const loadAdminProductImages = async (productId: number): Promise<AdminPr
 
 export const createAdminProductImage = async (
   productId: number,
-  payload: { image: File; sort_order?: number | null; is_primary?: boolean }
+  payload: { image: File; variant_id: number; sort_order?: number | null; is_primary?: boolean }
 ): Promise<AdminProductImage> => {
   const formData = new FormData()
   formData.append('image', payload.image)
+  formData.append('variant_id', String(payload.variant_id))
 
   if (payload.sort_order !== undefined && payload.sort_order !== null) {
     formData.append('sort_order', String(payload.sort_order))

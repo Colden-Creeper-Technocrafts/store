@@ -14,7 +14,8 @@ class StoreProductImageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'image' => ['required', 'image', 'max:4096'],
+            'image'      => ['required', 'image', 'max:4096'],
+            'variant_id' => ['required', 'integer', 'exists:product_variants,id'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_primary' => ['nullable', 'boolean'],
         ];

@@ -60,10 +60,6 @@ class StorefrontRepository implements StorefrontRepositoryInterface
     public function activeProducts(object $store, array $categoryIds = []): Collection
     {
         $productsQuery = DB::table('products')
-            ->leftJoin('product_images', function ($join) {
-                $join->on('products.id', '=', 'product_images.product_id')
-                    ->where('product_images.is_primary', true);
-            })
             ->join('categories', function ($join) use ($store) {
                 $join->on('products.category_id', '=', 'categories.id')
                     ->where('categories.store_setting_id', $store->id);
@@ -72,6 +68,10 @@ class StorefrontRepository implements StorefrontRepositoryInterface
                 $join->on('pv.id', '=', DB::raw(
                     '(SELECT id FROM product_variants WHERE product_id = products.id ORDER BY is_default DESC, id ASC LIMIT 1)'
                 ));
+            })
+            ->leftJoin('product_images', function ($join) {
+                $join->on('product_images.product_variant_id', '=', 'pv.id')
+                    ->where('product_images.is_primary', true);
             })
             ->select([
                 'products.id',
@@ -105,10 +105,6 @@ class StorefrontRepository implements StorefrontRepositoryInterface
     public function findProductBySlug(object $store, string $slug): ?object
     {
         $product = DB::table('products')
-            ->leftJoin('product_images', function ($join) {
-                $join->on('products.id', '=', 'product_images.product_id')
-                    ->where('product_images.is_primary', true);
-            })
             ->join('categories', function ($join) use ($store) {
                 $join->on('products.category_id', '=', 'categories.id')
                     ->where('categories.store_setting_id', $store->id);
@@ -117,6 +113,10 @@ class StorefrontRepository implements StorefrontRepositoryInterface
                 $join->on('pv.id', '=', DB::raw(
                     '(SELECT id FROM product_variants WHERE product_id = products.id ORDER BY is_default DESC, id ASC LIMIT 1)'
                 ));
+            })
+            ->leftJoin('product_images', function ($join) {
+                $join->on('product_images.product_variant_id', '=', 'pv.id')
+                    ->where('product_images.is_primary', true);
             })
             ->select([
                 'products.id',
@@ -145,7 +145,7 @@ class StorefrontRepository implements StorefrontRepositoryInterface
             ? asset('storage/' . ltrim($product->image, '/'))
             : asset('images/product-placeholder.svg');
 
-        // Attach all variants for selector on the detail page
+        // Attach all variants with their images for the detail page
         $product->variants = DB::table('product_variants')
             ->where('product_id', $product->id)
             ->orderByDesc('is_default')
@@ -153,6 +153,18 @@ class StorefrontRepository implements StorefrontRepositoryInterface
             ->get(['id', 'sku', 'price', 'sale_price', 'quantity', 'options', 'is_default'])
             ->map(function (object $v): object {
                 $v->options = $v->options ? json_decode($v->options, true) : null;
+                $v->images  = DB::table('product_images')
+                    ->where('product_variant_id', $v->id)
+                    ->orderByDesc('is_primary')
+                    ->orderBy('sort_order')
+                    ->get(['id', 'image', 'is_primary', 'sort_order'])
+                    ->map(fn ($img) => [
+                        'id'        => $img->id,
+                        'image_url' => asset('storage/' . ltrim($img->image, '/')),
+                        'is_primary'=> (bool) $img->is_primary,
+                        'sort_order'=> $img->sort_order,
+                    ])
+                    ->values();
                 return $v;
             });
 

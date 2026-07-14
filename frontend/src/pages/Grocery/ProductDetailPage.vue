@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { loadStoreProduct, type StorefrontProduct } from '../../services/storefront'
 import { useAuthStore } from '../../stores/auth'
@@ -15,6 +15,12 @@ const loading = ref(true)
 const adding = ref(false)
 const addError = ref('')
 const addSuccess = ref(false)
+
+const displayImage = computed(() => {
+  const defaultV = product.value?.variants?.find(v => v.is_default) ?? product.value?.variants?.[0]
+  const imgs = defaultV?.images ?? []
+  return imgs.find(img => img.is_primary)?.image_url ?? imgs[0]?.image_url ?? product.value?.image ?? '/images/product-placeholder.svg'
+})
 
 const inStock = () => product.value?.quantity == null || product.value.quantity > 0
 const stockLabel = () => {
@@ -41,7 +47,7 @@ const handleAdd = async () => {
         sku: p.sku ?? null,
         price: Number(p.price ?? 0),
         sale_price: p.sale_price != null ? Number(p.sale_price) : null,
-        image_url: p.image ?? '/images/product-placeholder.svg',
+        image_url: displayImage.value,
         stock: p.quantity ?? null,
       })
     }
@@ -83,7 +89,7 @@ onMounted(async () => {
       <div class="grid gap-8 lg:grid-cols-[480px_1fr]">
         <div class="overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
           <img
-            :src="product.image ?? '/images/product-placeholder.svg'"
+            :src="displayImage"
             :alt="product.name"
             class="h-full w-full object-cover"
             style="min-height: 320px; max-height: 520px;"

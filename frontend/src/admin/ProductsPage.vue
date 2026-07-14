@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import type { AdminProduct, AdminProductImage, AdminProductVariant } from '../services/adminProducts'
-import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, loadProductImageDefaults, adjustProductStock } from '../services/adminProducts'
+import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, adjustProductStock } from '../services/adminProducts'
 import { loadAdminCategories } from '../services/adminCategories'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
@@ -29,11 +29,10 @@ const variants = ref<AdminProductVariant[]>([])
 const variantLoading = ref(false)
 const editingVariantId = ref<number | null>(null)
 const showVariantForm = ref(false)
-const images = ref<AdminProductImage[]>([])
-const imageLoading = ref(false)
-const selectedImage = ref<File | null>(null)
-const imageInputRef = ref<HTMLInputElement | null>(null)
-const defaultProductImage = ref('')
+const variantImages = ref<Record<number, AdminProductImage[]>>({})
+const variantImageFiles = ref<Record<number, File | null>>({})
+const variantImageInputs = ref<Record<number, HTMLInputElement | null>>({})
+const expandedVariantId = ref<number | null>(null)
 
 const form = reactive({
   name: '',
@@ -95,15 +94,6 @@ const loadCategories = async () => {
   }
 }
 
-const loadImageDefaults = async () => {
-  try {
-    const defaults = await loadProductImageDefaults()
-    defaultProductImage.value = defaults.default_image
-  } catch (e) {
-    defaultProductImage.value = '/images/product-placeholder.svg'
-  }
-}
-
 const resetForm = () => {
   editingId.value = null
   form.name = ''
@@ -118,7 +108,7 @@ const resetForm = () => {
   errorMessage.value = ''
   showForm.value = false
   resetVariants()
-  resetImages()
+  resetVariantImages()
 }
 
 const resetVariantForm = () => {
@@ -140,14 +130,10 @@ const resetVariants = () => {
   resetVariantForm()
 }
 
-const resetImages = () => {
-  images.value = []
-  imageLoading.value = false
-  selectedImage.value = null
-
-  if (imageInputRef.value) {
-    imageInputRef.value.value = ''
-  }
+const resetVariantImages = () => {
+  variantImages.value = {}
+  variantImageFiles.value = {}
+  expandedVariantId.value = null
 }
 
 const syncDefaultVariantToForm = () => {
@@ -173,22 +159,6 @@ const loadVariants = async (productId: number) => {
   }
 }
 
-const loadImages = async (productId: number) => {
-  imageLoading.value = true
-  try {
-    images.value = await loadAdminProductImages(productId)
-  } catch (e) {
-    images.value = []
-  } finally {
-    imageLoading.value = false
-  }
-}
-
-const onImageSelected = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  selectedImage.value = target.files?.[0] ?? null
-}
-
 const editProduct = async (p: AdminProduct) => {
   editingId.value = p.id
   form.name = p.name
@@ -201,9 +171,8 @@ const editProduct = async (p: AdminProduct) => {
   form.status = p.status ?? true
   showForm.value = true
   resetVariants()
-  resetImages()
+  resetVariantImages()
   await loadVariants(p.id)
-  await loadImages(p.id)
   setTimeout(() => {
     formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, 0)
@@ -292,74 +261,76 @@ const removeVariant = async (variant: AdminProductVariant) => {
   }
 }
 
-const uploadImage = async () => {
-  if (!editingId.value || !selectedImage.value) {
+const loadVariantImages = async (variantId: number) => {
+  if (!editingId.value) return
+  try {
+    const all = await loadAdminProductImages(editingId.value)
+    variantImages.value[variantId] = all.filter((img) => img.product_variant_id === variantId)
+  } catch {
+    variantImages.value[variantId] = []
+  }
+}
+
+const toggleVariantImages = async (variantId: number) => {
+  if (expandedVariantId.value === variantId) {
+    expandedVariantId.value = null
     return
   }
+  expandedVariantId.value = variantId
+  if (!variantImages.value[variantId]) {
+    await loadVariantImages(variantId)
+  }
+}
 
+const onVariantImageSelected = (variantId: number, event: Event) => {
+  const target = event.target as HTMLInputElement
+  variantImageFiles.value[variantId] = target.files?.[0] ?? null
+}
+
+const uploadVariantImage = async (variantId: number) => {
+  if (!editingId.value || !variantImageFiles.value[variantId]) return
   isSaving.value = true
   errorMessage.value = ''
-  successMessage.value = ''
-
   try {
+    const existing = variantImages.value[variantId] ?? []
     await createAdminProductImage(editingId.value, {
-      image: selectedImage.value,
-      sort_order: images.value.length,
-      is_primary: images.value.length === 0,
+      image: variantImageFiles.value[variantId]!,
+      variant_id: variantId,
+      sort_order: existing.length,
+      is_primary: existing.length === 0,
     })
+    variantImageFiles.value[variantId] = null
+    const input = variantImageInputs.value[variantId]
+    if (input) input.value = ''
+    await loadVariantImages(variantId)
     successMessage.value = 'Image uploaded.'
-    selectedImage.value = null
-
-    if (imageInputRef.value) {
-      imageInputRef.value.value = ''
-    }
-
-    await loadImages(editingId.value)
   } catch (e: any) {
-    const response = e?.response?.data
-    const firstError = response?.errors ? Object.values(response.errors).find((messages) => Array.isArray(messages) && messages.length) : null
-    errorMessage.value = Array.isArray(firstError) ? firstError[0] : 'Unable to upload image.'
+    const resp = e?.response?.data
+    const firstError = resp?.errors ? (Object.values(resp.errors) as string[][]).find((m) => m.length) : null
+    errorMessage.value = firstError?.[0] ?? 'Unable to upload image.'
   } finally {
     isSaving.value = false
   }
 }
 
-const setPrimaryImage = async (image: AdminProductImage) => {
-  if (!editingId.value) {
-    return
-  }
-
+const setPrimaryVariantImage = async (image: AdminProductImage) => {
+  if (!editingId.value) return
   try {
     await updateAdminProductImage(editingId.value, image.id, { is_primary: true, sort_order: image.sort_order })
-    successMessage.value = 'Primary image updated.'
-    await loadImages(editingId.value)
-  } catch (e) {
+    await loadVariantImages(image.product_variant_id)
+    successMessage.value = 'Primary image set.'
+  } catch {
     errorMessage.value = 'Unable to update primary image.'
   }
 }
 
-const updateImageSortOrder = async (image: AdminProductImage) => {
-  if (!editingId.value) {
-    return
-  }
-
-  try {
-    await updateAdminProductImage(editingId.value, image.id, { sort_order: image.sort_order, is_primary: image.is_primary })
-    successMessage.value = 'Image order updated.'
-    await loadImages(editingId.value)
-  } catch (e) {
-    errorMessage.value = 'Unable to update image order.'
-  }
-}
-
-const removeImage = async (image: AdminProductImage) => {
-  if (!editingId.value || !confirm('Delete this product image?')) return
-
+const deleteVariantImage = async (image: AdminProductImage) => {
+  if (!editingId.value || !confirm('Delete this image?')) return
   try {
     await deleteAdminProductImage(editingId.value, image.id)
+    await loadVariantImages(image.product_variant_id)
     successMessage.value = 'Image deleted.'
-    await loadImages(editingId.value)
-  } catch (e) {
+  } catch {
     errorMessage.value = 'Unable to delete image.'
   }
 }
@@ -451,7 +422,8 @@ const saveAdjust = async (p: AdminProduct) => {
   try {
     const updated = await adjustProductStock(p.id, adjustQty.value)
     const idx = products.value.findIndex((x) => x.id === p.id)
-    if (idx !== -1) products.value[idx] = { ...products.value[idx], quantity: updated.quantity }
+    const existing = products.value[idx]
+    if (idx !== -1 && existing) products.value[idx] = { ...existing, quantity: updated.quantity } as AdminProduct
     adjustingProductId.value = null
     successMessage.value = 'Stock updated.'
   } catch {
@@ -475,7 +447,6 @@ const changePage = (p: number) => {
 onMounted(() => {
   loadProducts()
   loadCategories()
-  loadImageDefaults()
 })
 </script>
 
@@ -670,43 +641,6 @@ onMounted(() => {
           </form>
 
           <div v-if="editingId" class="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p class="text-sm font-semibold text-slate-900">Product images</p>
-                <p class="mt-1 text-sm text-slate-500">Upload gallery images and choose the primary storefront image.</p>
-              </div>
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div>
-                  <label class="block text-sm font-medium text-slate-700">Image</label>
-                  <input ref="imageInputRef" type="file" accept="image/*" class="mt-2 block w-full text-sm text-slate-700" @change="onImageSelected" />
-                </div>
-                <button type="button" :disabled="isSaving || !selectedImage" class="rounded-full bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-300" @click="uploadImage">Upload image</button>
-              </div>
-            </div>
-
-            <div v-if="imageLoading" class="text-sm text-slate-500">Loading images...</div>
-            <div v-else-if="!images.length" class="rounded-3xl border border-dashed border-slate-300 bg-white p-4">
-              <img v-if="defaultProductImage" :src="defaultProductImage" alt="" class="h-40 w-full rounded-2xl object-cover" />
-              <p class="mt-3 text-sm text-slate-500">No images uploaded yet. Customers will see this default image.</p>
-            </div>
-            <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div v-for="image in images" :key="image.id" class="rounded-3xl border border-slate-200 bg-white p-3">
-                <img :src="image.image_url" alt="" class="h-36 w-full rounded-2xl object-cover" />
-                <div class="mt-3 flex items-center justify-between gap-2">
-                  <span :class="['rounded-full px-2 py-1 text-xs font-semibold', image.is_primary ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600']">
-                    {{ image.is_primary ? 'Primary' : 'Gallery' }}
-                  </span>
-                  <input v-model.number="image.sort_order" type="number" min="0" class="w-20 rounded-full border px-3 py-1 text-sm" @change="updateImageSortOrder(image)" />
-                </div>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <button type="button" :disabled="image.is_primary" class="rounded-full border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50" @click="setPrimaryImage(image)">Set primary</button>
-                  <button type="button" class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm text-rose-700" @click="removeImage(image)">Delete</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="editingId" class="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
             <div class="mb-4 flex items-center justify-between">
               <p class="text-sm font-semibold text-slate-900">Variants</p>
               <button type="button" @click="openVariantForm" class="rounded-full border px-4 py-2 bg-white text-sm">Add variant</button>
@@ -727,17 +661,60 @@ onMounted(() => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="variant in variants" :key="variant.id" class="border-b hover:bg-slate-50">
-                    <td class="py-3">{{ variant.sku ?? '—' }}</td>
-                    <td class="py-3">{{ variant.price ? '$' + variant.price : '—' }}</td>
-                    <td class="py-3">{{ variant.quantity ?? 0 }}</td>
-                    <td class="py-3">{{ variant.is_default ? 'Yes' : 'No' }}</td>
-                    <td class="py-3">{{ variant.status ? 'Active' : 'Inactive' }}</td>
-                    <td class="py-3">
-                      <button type="button" class="rounded-full border px-3 py-1 mr-2" @click="editVariant(variant)">Edit</button>
-                      <button type="button" class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700" @click="removeVariant(variant)">Delete</button>
-                    </td>
-                  </tr>
+                  <template v-for="variant in variants" :key="variant.id">
+                    <tr class="border-b hover:bg-slate-50">
+                      <td class="py-3">{{ variant.sku ?? '—' }}</td>
+                      <td class="py-3">{{ variant.price ? '₹' + variant.price : '—' }}</td>
+                      <td class="py-3">{{ variant.quantity ?? 0 }}</td>
+                      <td class="py-3">{{ variant.is_default ? 'Yes' : 'No' }}</td>
+                      <td class="py-3">{{ variant.status ? 'Active' : 'Inactive' }}</td>
+                      <td class="py-3">
+                        <div class="flex flex-wrap gap-2">
+                          <button type="button" class="rounded-full border px-3 py-1 text-sm" @click="editVariant(variant)">Edit</button>
+                          <button type="button" class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm text-rose-700" @click="removeVariant(variant)">Delete</button>
+                          <button type="button" class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sm text-sky-700" @click="toggleVariantImages(variant.id)">
+                            Images{{ (variantImages[variant.id] ?? []).length ? ` (${(variantImages[variant.id] ?? []).length})` : '' }}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr v-if="expandedVariantId === variant.id" class="bg-slate-50 border-b">
+                      <td colspan="6" class="px-4 pb-4 pt-2">
+                        <div class="space-y-3">
+                          <div class="flex items-center gap-3">
+                            <input
+                              :ref="(el) => { variantImageInputs[variant.id] = el as HTMLInputElement | null }"
+                              type="file"
+                              accept="image/*"
+                              class="text-sm text-slate-700"
+                              @change="onVariantImageSelected(variant.id, $event)"
+                            />
+                            <button
+                              type="button"
+                              :disabled="isSaving || !variantImageFiles[variant.id]"
+                              class="rounded-full bg-slate-900 px-4 py-1.5 text-sm text-white disabled:opacity-50"
+                              @click="uploadVariantImage(variant.id)"
+                            >Upload</button>
+                          </div>
+                          <div v-if="!variantImages[variant.id]?.length" class="text-sm text-slate-500">No images yet.</div>
+                          <div v-else class="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                            <div v-for="img in variantImages[variant.id]" :key="img.id" class="rounded-2xl border border-slate-200 bg-white p-2">
+                              <img :src="img.image_url" alt="" class="h-28 w-full rounded-xl object-cover" />
+                              <div class="mt-2 flex items-center justify-between gap-1">
+                                <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', img.is_primary ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600']">
+                                  {{ img.is_primary ? 'Primary' : 'Gallery' }}
+                                </span>
+                                <div class="flex gap-1">
+                                  <button type="button" :disabled="img.is_primary" class="rounded-full border px-2 py-0.5 text-xs disabled:opacity-40" @click="setPrimaryVariantImage(img)">★</button>
+                                  <button type="button" class="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs text-rose-700" @click="deleteVariantImage(img)">✕</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </table>
             </div>
