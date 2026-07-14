@@ -87,12 +87,11 @@ onMounted(async () => {
 
     <template v-else-if="product">
       <div class="grid gap-8 lg:grid-cols-[480px_1fr]">
-        <div class="overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
+        <div class="aspect-[3/4] w-full overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
           <img
             :src="displayImage"
             :alt="product.name"
             class="h-full w-full object-cover"
-            style="min-height: 320px; max-height: 520px;"
           />
         </div>
 

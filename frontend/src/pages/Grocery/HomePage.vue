@@ -186,7 +186,7 @@ onMounted(async () => {
           >
             <div
               @click="goToProduct(product.slug)"
-              class="mb-3 h-28 cursor-pointer bg-cover bg-center bg-emerald-100"
+              class="mb-3 aspect-[3/4] w-full cursor-pointer bg-cover bg-center bg-emerald-100"
               :style="product.image
                 ? { backgroundImage: `linear-gradient(rgba(4,120,87,.15),rgba(4,120,87,.15)),url(${product.image})` }
                 : {}"

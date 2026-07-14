@@ -101,7 +101,7 @@ onMounted(async () => {
             class="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <div
-              class="h-40 bg-cover bg-center"
+              class="aspect-[3/4] w-full bg-cover bg-center"
               :style="{ backgroundImage: `url(${product.image})` }"
             ></div>
             <div class="p-5">

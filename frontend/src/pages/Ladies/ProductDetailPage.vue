@@ -145,12 +145,11 @@ onMounted(async () => {
 
         <!-- Image -->
         <div class="space-y-3">
-          <div class="overflow-hidden border border-stone-200 bg-stone-50">
+          <div class="aspect-[3/4] w-full overflow-hidden border border-stone-200 bg-stone-50">
             <img
               :src="displayImage"
               :alt="product.name"
               class="h-full w-full object-cover"
-              style="min-height: 320px; max-height: 520px;"
             />
           </div>
           <div v-if="variantImages.length > 1" class="flex gap-2 overflow-x-auto pb-1">
