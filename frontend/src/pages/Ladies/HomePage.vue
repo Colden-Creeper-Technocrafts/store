@@ -162,7 +162,7 @@ onMounted(async () => {
             class="rounded-3xl border border-stone-200 bg-stone-50/80 p-5 transition hover:-translate-y-1 hover:border-amber-300 hover:bg-white"
           >
             <div
-              class="mb-4 h-36 rounded-2xl bg-cover bg-center bg-stone-200"
+              class="mb-4 aspect-[3/4] w-full rounded-2xl bg-cover bg-center bg-stone-200"
               :style="product.image ? { backgroundImage: `url(${product.image})` } : {}"
             ></div>
             <p v-if="product.category_name" class="text-xs font-semibold uppercase tracking-[0.16em] text-rose-500">

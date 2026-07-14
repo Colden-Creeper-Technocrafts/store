@@ -141,7 +141,7 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="product">
-      <div class="grid gap-8 lg:grid-cols-[480px_1fr]">
+      <div class="grid gap-8 lg:grid-cols-2">
 
         <!-- Image -->
         <div class="space-y-3">

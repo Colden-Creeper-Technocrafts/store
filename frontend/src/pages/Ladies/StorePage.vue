@@ -139,7 +139,7 @@ onMounted(async () => {
           >
             <!-- Image — clickable -->
             <router-link :to="`/product/${product.slug}`" class="block">
-              <div class="relative h-40 overflow-hidden bg-stone-100">
+              <div class="relative aspect-[3/4] overflow-hidden bg-stone-100">
                 <img
                   :src="product.image ?? '/images/product-placeholder.svg'"
                   :alt="product.name"
