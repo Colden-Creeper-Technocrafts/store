@@ -43,7 +43,8 @@ watch(isCustomer, (val) => {
   <div class="store-shell flex min-h-screen flex-col text-stone-900">
     <!-- Header -->
     <header class="sticky top-0 z-50 border-b border-stone-100 bg-white/95 shadow-sm backdrop-blur-xl">
-      <div class="mx-auto grid max-w-7xl grid-cols-3 items-center px-4 py-3 sm:px-6">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6">
+        <div class="flex items-center justify-between py-3">
 
         <!-- Brand -->
         <div class="flex items-center">
@@ -58,17 +59,6 @@ watch(isCustomer, (val) => {
               {{ storeName }}
             </span>
           </router-link>
-        </div>
-
-        <!-- Tagline (center) — elegant rule treatment -->
-        <div class="flex justify-center">
-          <div v-if="storeTagline" class="flex items-center gap-3">
-            <span class="h-px w-8 bg-gradient-to-r from-transparent to-amber-300"></span>
-            <span class="whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.22em] text-stone-400">
-              {{ storeTagline }}
-            </span>
-            <span class="h-px w-8 bg-gradient-to-l from-transparent to-amber-300"></span>
-          </div>
         </div>
 
         <!-- Desktop nav -->
@@ -141,6 +131,16 @@ watch(isCustomer, (val) => {
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
+        </div>
+        </div>
+
+        <!-- Tagline — centered below logo/nav row -->
+        <div v-if="storeTagline" class="flex items-center justify-center gap-3 pb-2">
+          <span class="h-px w-8 bg-gradient-to-r from-transparent to-amber-300"></span>
+          <span class="text-[10px] font-medium uppercase tracking-[0.22em] text-stone-400">
+            {{ storeTagline }}
+          </span>
+          <span class="h-px w-8 bg-gradient-to-l from-transparent to-amber-300"></span>
         </div>
       </div>
 

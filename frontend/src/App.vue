@@ -33,6 +33,10 @@ const logout = () => {
 </script>
 
 <template>
+  <div class="bg-stone-800 py-1.5 text-center text-xs text-stone-300 tracking-wide">
+    Beta version — currently available for friends &amp; family only.
+  </div>
+
   <component v-if="isStorePage" :is="activeStoreLayout">
     <RouterView />
   </component>

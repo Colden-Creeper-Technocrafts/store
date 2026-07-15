@@ -95,7 +95,7 @@ onMounted(async () => {
   <section class="grid gap-4 lg:grid-cols-[300px_1fr]">
     <CategoryTreeSidebar
       ref="sidebarRef"
-      title="Ladies Categories"
+      title="Category"
       :categories="categories"
       :loading="loading"
       tone="ladies"
