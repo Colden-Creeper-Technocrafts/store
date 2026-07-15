@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useCartStore } from '../../stores/cart'
-import { formatPrice } from '../../services/storefront'
+import { formatPrice, useStorefront } from '../../services/storefront'
 
 const cartStore = useCartStore()
+const { storeShippingCharge, storeFreeShippingThreshold } = useStorefront()
+
+const shippingCost = computed(() => {
+  const t = cartStore.total
+  if (storeFreeShippingThreshold.value !== null && t >= storeFreeShippingThreshold.value) return 0
+  return storeShippingCharge.value
+})
+const finalTotal = computed(() => cartStore.total + shippingCost.value)
 
 onMounted(async () => {
   await cartStore.load()
@@ -93,9 +101,13 @@ const increment = async (itemId: number, qty: number) => {
             <span>Subtotal ({{ cartStore.itemCount }} item{{ cartStore.itemCount !== 1 ? 's' : '' }})</span>
             <span>{{ formatPrice(cartStore.total) }}</span>
           </div>
+          <div class="flex justify-between text-sm text-stone-600">
+            <span>Shipping</span>
+            <span>{{ shippingCost === 0 ? 'FREE' : formatPrice(shippingCost) }}</span>
+          </div>
           <div class="flex justify-between border-t border-stone-100 pt-4 font-semibold text-stone-900">
             <span>Total</span>
-            <span>{{ formatPrice(cartStore.total) }}</span>
+            <span>{{ formatPrice(finalTotal) }}</span>
           </div>
           <router-link
             to="/checkout"

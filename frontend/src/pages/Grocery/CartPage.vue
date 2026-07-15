@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useCartStore } from '../../stores/cart'
+import { formatPrice, useStorefront } from '../../services/storefront'
 
 const cartStore = useCartStore()
+const { storeShippingCharge, storeFreeShippingThreshold } = useStorefront()
+
+const shippingCost = computed(() => {
+  const t = cartStore.total
+  if (storeFreeShippingThreshold.value !== null && t >= storeFreeShippingThreshold.value) return 0
+  return storeShippingCharge.value
+})
+const finalTotal = computed(() => cartStore.total + shippingCost.value)
 
 onMounted(async () => {
   await cartStore.load()
@@ -74,7 +83,7 @@ const increment = async (itemId: number, qty: number) => {
                   >+</button>
                 </div>
                 <div class="flex items-center gap-4">
-                  <span class="font-semibold text-emerald-950">${{ item.line_total.toFixed(2) }}</span>
+                  <span class="font-semibold text-emerald-950">{{ formatPrice(item.line_total) }}</span>
                   <button
                     @click="cartStore.remove(item.id)"
                     class="text-xs text-rose-500 hover:underline"
@@ -90,11 +99,15 @@ const increment = async (itemId: number, qty: number) => {
           <p class="font-semibold text-emerald-950 text-lg">Order Summary</p>
           <div class="flex justify-between text-sm text-emerald-700">
             <span>Subtotal ({{ cartStore.itemCount }} item{{ cartStore.itemCount !== 1 ? 's' : '' }})</span>
-            <span>${{ cartStore.total.toFixed(2) }}</span>
+            <span>{{ formatPrice(cartStore.total) }}</span>
+          </div>
+          <div class="flex justify-between text-sm text-emerald-700">
+            <span>Shipping</span>
+            <span>{{ shippingCost === 0 ? 'FREE' : formatPrice(shippingCost) }}</span>
           </div>
           <div class="flex justify-between border-t border-emerald-100 pt-4 font-semibold text-emerald-950">
             <span>Total</span>
-            <span>${{ cartStore.total.toFixed(2) }}</span>
+            <span>{{ formatPrice(finalTotal) }}</span>
           </div>
           <router-link
             to="/checkout"

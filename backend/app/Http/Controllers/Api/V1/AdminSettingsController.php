@@ -39,9 +39,11 @@ class AdminSettingsController
             'store_description'      => ['nullable', 'string', 'max:2000'],
             'tagline'                => ['nullable', 'string', 'max:255'],
             'currency'               => ['nullable', 'string', 'size:3'],
-            'is_active'              => ['sometimes', 'boolean'],
-            'banner_title'           => ['nullable', 'string', 'max:255'],
-            'banner_text'            => ['nullable', 'string', 'max:1000'],
+            'is_active'                 => ['sometimes', 'boolean'],
+            'banner_title'              => ['nullable', 'string', 'max:255'],
+            'banner_text'               => ['nullable', 'string', 'max:1000'],
+            'shipping_charge'           => ['sometimes', 'numeric', 'min:0'],
+            'free_shipping_threshold'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $settings = StoreSetting::find($id);

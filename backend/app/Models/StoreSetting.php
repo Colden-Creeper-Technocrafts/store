@@ -38,6 +38,8 @@ class StoreSetting extends Model
         'banner_title',
         'banner_text',
         'currency',
+        'shipping_charge',
+        'free_shipping_threshold',
         'features',
         'notification_config',
         'layout',
@@ -45,9 +47,11 @@ class StoreSetting extends Model
     ];
 
     protected $casts = [
-        'features'            => 'array',
-        'notification_config' => 'array',
-        'is_active'           => 'boolean',
+        'shipping_charge'          => 'float',
+        'free_shipping_threshold'  => 'float',
+        'features'                 => 'array',
+        'notification_config'      => 'array',
+        'is_active'                => 'boolean',
     ];
 
     public static function active(): ?self

@@ -71,7 +71,9 @@ class StorefrontController extends Controller
                 'banner_image' => $this->resolveLogoUrl($store->banner_image ?? null, $request),
                 'banner_title' => $store->banner_title ?? null,
                 'banner_text'  => $store->banner_text ?? null,
-                'currency'     => $store->currency ?? 'INR',
+                'currency'              => $store->currency ?? 'INR',
+                'shipping_charge'       => (float) ($store->shipping_charge ?? 0),
+                'free_shipping_threshold' => isset($store->free_shipping_threshold) ? (float) $store->free_shipping_threshold : null,
             ],
         ]);
     }

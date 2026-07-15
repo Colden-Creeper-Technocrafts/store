@@ -94,8 +94,10 @@ const form = ref({
   banner_image:      '',
   banner_title:      '',
   banner_text:       '',
-  currency:          'INR',
-  is_active:         false,
+  currency:                  'INR',
+  shipping_charge:           0,
+  free_shipping_threshold:   null as number | null,
+  is_active:                 false,
 })
 
 const displayLogo    = computed(() => logoPreview.value    || form.value.logo_url    || null)
@@ -126,8 +128,10 @@ function populateForm(s: StoreSettings) {
   form.value.banner_image      = s.banner_image      ?? ''
   form.value.banner_title      = s.banner_title      ?? ''
   form.value.banner_text       = s.banner_text       ?? ''
-  form.value.currency          = s.currency          ?? 'INR'
-  form.value.is_active         = s.is_active         ?? false
+  form.value.currency                = s.currency                ?? 'INR'
+  form.value.shipping_charge         = s.shipping_charge         ?? 0
+  form.value.free_shipping_threshold = s.free_shipping_threshold ?? null
+  form.value.is_active               = s.is_active               ?? false
   // Reset pending file/clear state when switching stores
   logoFile.value    = null
   logoPreview.value = null
@@ -215,8 +219,12 @@ async function save() {
       tagline:           form.value.tagline        || null,
       banner_title:      form.value.banner_title   || null,
       banner_text:       form.value.banner_text    || null,
-      currency:          form.value.currency,
-      is_active:         form.value.is_active,
+      currency:                  form.value.currency,
+      shipping_charge:           Number(form.value.shipping_charge) || 0,
+      free_shipping_threshold:   form.value.free_shipping_threshold !== null && form.value.free_shipping_threshold !== undefined
+                                   ? Number(form.value.free_shipping_threshold)
+                                   : null,
+      is_active:                 form.value.is_active,
       ...(logoWasCleared    ? { logo_url:     null } : {}),
       ...(bannerWasCleared  ? { banner_image: null } : {}),
       ...(faviconWasCleared ? { favicon_url:  null } : {}),
@@ -525,6 +533,47 @@ async function save() {
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- Shipping -->
+        <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h2 class="text-2xl font-semibold text-slate-900 mb-2">Shipping</h2>
+          <p class="text-slate-500 mb-6">Flat shipping fee applied to every order. Set a threshold for free shipping.</p>
+
+          <div class="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label class="block text-sm font-semibold text-slate-900 mb-2">Shipping Charge (₹)</label>
+              <input
+                v-model.number="form.shipping_charge"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 50"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <p class="mt-1 text-xs text-slate-400">Charged on every order. Enter 0 for no shipping fee.</p>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-900 mb-2">Free Shipping Threshold (₹)</label>
+              <input
+                v-model.number="form.free_shipping_threshold"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 500 (leave blank to disable)"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <p class="mt-1 text-xs text-slate-400">Orders at or above this amount get free shipping. Leave blank to always charge.</p>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-5 py-3 text-sm text-sky-800">
+            <span v-if="!form.shipping_charge">Shipping is free on all orders.</span>
+            <span v-else-if="form.free_shipping_threshold">
+              Shipping: ₹{{ Number(form.shipping_charge).toFixed(2) }} · Free on orders ≥ ₹{{ Number(form.free_shipping_threshold).toFixed(2) }}
+            </span>
+            <span v-else>Flat shipping: ₹{{ Number(form.shipping_charge).toFixed(2) }} on every order.</span>
           </div>
         </section>
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
-import { placeOrder, placeGuestOrder, calculateShipping } from '../../services/orders'
-import type { ShippingRate } from '../../services/orders'
+import { placeOrder, placeGuestOrder } from '../../services/orders'
+import { useStorefront } from '../../services/storefront'
 import {
   createRazorpayOrder,
   openRazorpayModal,
@@ -27,9 +27,7 @@ const couponValidating = ref(false)
 const couponError = ref('')
 const appliedCoupon = ref<CouponValidation | null>(null)
 
-const shippingRates = ref<ShippingRate[]>([])
-const loadingRates = ref(false)
-const selectedRate = ref<ShippingRate | null>(null)
+const { storeShippingCharge, storeFreeShippingThreshold } = useStorefront()
 
 const form = reactive({
   shipping_name: authStore.user?.name ?? '',
@@ -48,26 +46,6 @@ onMounted(async () => {
   if (cartStore.isEmpty) router.push('/cart')
 })
 
-let rateTimer: ReturnType<typeof setTimeout> | null = null
-
-const fetchRates = async () => {
-  const pincode = form.shipping_postal_code.trim()
-  if (pincode.length < 5) { shippingRates.value = []; selectedRate.value = null; return }
-  loadingRates.value = true
-  try {
-    const rates = await calculateShipping({ pincode, state: form.shipping_state.trim() || undefined, order_amount: cartStore.total })
-    shippingRates.value = rates
-    const currentId = selectedRate.value?.method_id
-    selectedRate.value = rates.find(r => r.method_id === currentId) ?? rates.find(() => true) ?? null
-  } catch { shippingRates.value = []; selectedRate.value = null }
-  finally { loadingRates.value = false }
-}
-
-watch([() => form.shipping_postal_code, () => form.shipping_state], () => {
-  if (rateTimer) clearTimeout(rateTimer)
-  rateTimer = setTimeout(fetchRates, 600)
-})
-
 const applyCoupon = async () => {
   const code = couponCode.value.trim()
   if (!code) return
@@ -82,8 +60,12 @@ const applyCoupon = async () => {
 
 const removeCoupon = () => { appliedCoupon.value = null; couponCode.value = ''; couponError.value = '' }
 
-const shippingCost = () => selectedRate.value?.cost ?? 0
-const finalTotal = () => Math.max(0, cartStore.total - (appliedCoupon.value?.discount_amount ?? 0)) + shippingCost()
+const shippingCost = computed(() => {
+  const t = cartStore.total
+  if (storeFreeShippingThreshold.value !== null && t >= storeFreeShippingThreshold.value) return 0
+  return storeShippingCharge.value
+})
+const finalTotal = computed(() => Math.max(0, cartStore.total - (appliedCoupon.value?.discount_amount ?? 0)) + shippingCost.value)
 
 const stepLabel = () => {
   if (paymentStep.value === 'creating') return 'Creating order…'
@@ -107,7 +89,6 @@ const submit = async () => {
       shipping_country: form.shipping_country,
       notes: form.notes || null,
       coupon_code: appliedCoupon.value?.code ?? null,
-      shipping_method_id: selectedRate.value?.method_id ?? null,
     }
 
     // Step 1 — create order in our DB (pending / unpaid)
@@ -223,30 +204,6 @@ const submit = async () => {
             </div>
           </div>
 
-          <!-- Shipping Method -->
-          <div>
-            <p class="text-sm font-medium text-emerald-800 mb-2">Shipping Method</p>
-            <div v-if="loadingRates" class="text-sm text-emerald-400">Loading shipping options…</div>
-            <div v-else-if="shippingRates.length > 0" class="space-y-2">
-              <label
-                v-for="rate in shippingRates" :key="rate.method_id"
-                class="flex items-center gap-3 border p-3 cursor-pointer transition"
-                :class="selectedRate?.method_id === rate.method_id ? 'border-emerald-700 bg-emerald-50' : 'border-emerald-200 hover:border-emerald-400'"
-              >
-                <input type="radio" :value="rate.method_id" :checked="selectedRate?.method_id === rate.method_id"
-                  @change="selectedRate = rate" class="accent-emerald-700" />
-                <span class="flex-1 text-sm text-emerald-900">
-                  {{ rate.method_name }}
-                  <span v-if="rate.delivery_estimate" class="text-emerald-400 ml-1">({{ rate.delivery_estimate }})</span>
-                </span>
-                <span class="text-sm font-semibold text-emerald-900">
-                  {{ rate.is_free ? 'FREE' : `₹${rate.cost.toFixed(2)}` }}
-                </span>
-              </label>
-            </div>
-            <p v-else-if="form.shipping_postal_code.length >= 5" class="text-sm text-emerald-400">No shipping options available for this pincode.</p>
-            <p v-else class="text-sm text-emerald-400">Enter postal code to see shipping options.</p>
-          </div>
 
           <div>
             <label class="block text-sm font-medium text-emerald-800">Notes <span class="font-normal text-emerald-400">(optional)</span></label>
@@ -309,12 +266,11 @@ const submit = async () => {
             </div>
             <div class="flex justify-between text-sm text-emerald-700">
               <span>Shipping</span>
-              <span v-if="selectedRate">{{ selectedRate.is_free ? 'FREE' : `₹${selectedRate.cost.toFixed(2)}` }}</span>
-              <span v-else class="text-emerald-300">—</span>
+              <span>{{ shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}` }}</span>
             </div>
             <div class="flex justify-between pt-1 font-semibold text-emerald-950">
               <span>Total</span>
-              <span>₹{{ finalTotal().toFixed(2) }}</span>
+              <span>₹{{ finalTotal.toFixed(2) }}</span>
             </div>
           </div>
         </div>

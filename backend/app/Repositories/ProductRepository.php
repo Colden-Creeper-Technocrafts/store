@@ -70,8 +70,11 @@ class ProductRepository implements ProductRepositoryInterface
     public function findForStore(int $storeId, int $id): ?Product
     {
         return Product::with(['category', 'defaultVariant', 'images'])
-            ->join('categories', 'products.category_id', '=', 'categories.id')
-            ->where('categories.store_setting_id', $storeId)
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->where(function ($q) use ($storeId) {
+                $q->where('categories.store_setting_id', $storeId)
+                    ->orWhereNull('products.category_id');
+            })
             ->where('products.id', $id)
             ->select('products.*')
             ->first();

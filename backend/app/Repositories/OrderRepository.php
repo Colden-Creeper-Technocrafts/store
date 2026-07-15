@@ -11,9 +11,8 @@ use App\Models\CouponUsage;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\Product;
+use App\Models\StoreSetting;
 use App\Services\NotificationService;
-use App\Shipping\DTOs\RateRequest;
-use App\Shipping\ShippingRuleEngine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +22,6 @@ class OrderRepository implements OrderRepositoryInterface
 {
     public function __construct(
         private readonly CouponRepositoryInterface $coupons,
-        private readonly ShippingRuleEngine $engine,
         private readonly NotificationService $notifications,
         private readonly UserAddressRepositoryInterface $userAddresses,
     ) {}
@@ -199,27 +197,13 @@ class OrderRepository implements OrderRepositoryInterface
 
     private function resolveShippingCost(array $shippingData, float $subtotal, float $totalWeightKg): array
     {
-        $methodId = isset($shippingData['shipping_method_id'])
-            ? (int) $shippingData['shipping_method_id']
-            : null;
+        $store     = StoreSetting::active();
+        $charge    = (float) ($store?->shipping_charge ?? 0);
+        $threshold = $store?->free_shipping_threshold;
 
-        if (!$methodId) {
-            return ['shipping_method_id' => null, 'shipping_cost' => 0.0];
-        }
+        $cost = ($threshold !== null && $subtotal >= $threshold) ? 0.0 : $charge;
 
-        $rateRequest = new RateRequest(
-            weightKg:           max(0.1, $totalWeightKg),
-            orderAmount:        $subtotal,
-            destinationPincode: $shippingData['shipping_postal_code'] ?? '',
-            destinationState:   $shippingData['shipping_state'] ?? '',
-        );
-
-        $rate = $this->engine->rateForMethod($methodId, $rateRequest);
-
-        return [
-            'shipping_method_id' => $methodId,
-            'shipping_cost'      => $rate?->cost ?? 0.0,
-        ];
+        return ['shipping_method_id' => null, 'shipping_cost' => $cost];
     }
 
     private function assertStock(?Product $product, int $requested, ?object $variant = null): void

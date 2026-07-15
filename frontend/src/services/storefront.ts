@@ -30,6 +30,8 @@ const storeBannerImage = ref<string | null>(null)
 const storeBannerTitle = ref<string | null>(null)
 const storeBannerText = ref<string | null>(null)
 const storeCurrency = ref('INR')
+const storeShippingCharge = ref(0)
+const storeFreeShippingThreshold = ref<number | null>(null)
 const isLoaded = ref(false)
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -114,6 +116,8 @@ export const loadStorefront = async (force = false): Promise<void> => {
       storeBannerTitle.value = typeof store.banner_title === 'string' && store.banner_title.trim() ? store.banner_title : null
       storeBannerText.value = typeof store.banner_text === 'string' && store.banner_text.trim() ? store.banner_text : null
       storeCurrency.value = typeof store.currency === 'string' && store.currency.trim() ? store.currency.toUpperCase() : 'INR'
+      storeShippingCharge.value = typeof store.shipping_charge === 'number' ? store.shipping_charge : 0
+      storeFreeShippingThreshold.value = typeof store.free_shipping_threshold === 'number' ? store.free_shipping_threshold : null
     } catch {
       storeLayout.value = 'ladies'
       storeName.value = 'Store'
@@ -138,6 +142,8 @@ export const useStorefront = () => {
     storeBannerImage,
     storeBannerTitle,
     storeBannerText,
+    storeShippingCharge,
+    storeFreeShippingThreshold,
     isLoaded,
     categories,
     categoriesLoaded,

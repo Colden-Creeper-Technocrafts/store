@@ -21,6 +21,8 @@ export type StoreSettings = {
   banner_title: string | null
   banner_text: string | null
   currency: string
+  shipping_charge: number
+  free_shipping_threshold: number | null
   features: StoreFeatures | null
   layout: string
   is_active: boolean
@@ -39,6 +41,8 @@ export type StoreSettingsPayload = {
   banner_title?: string | null
   banner_text?: string | null
   currency?: string
+  shipping_charge?: number
+  free_shipping_threshold?: number | null
   features?: Partial<StoreFeatures>
   is_active?: boolean
 }
