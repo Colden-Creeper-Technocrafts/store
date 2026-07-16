@@ -214,7 +214,7 @@ class OtpService
                 ->post('https://www.fast2sms.com/dev/otp/send', [
                     'route'            => 'otp',
                     'variables_values' => $otp,
-                    'numbers'          => $phone,
+                    'mobile'           => $phone,
                 ]);
 
             $body = $response->json();
