@@ -207,6 +207,8 @@ class OtpService
             return;
         }
 
+        Log::info('Fast2SMS: sending OTP', ['phone' => $phone]);
+
         try {
             $response = Http::withHeaders(['authorization' => $apiKey])
                 ->post('https://www.fast2sms.com/dev/otp/send', [
@@ -217,16 +219,23 @@ class OtpService
 
             $body = $response->json();
 
+            Log::info('Fast2SMS: response', [
+                'phone'       => $phone,
+                'status'      => $response->status(),
+                'return'      => $body['return'] ?? null,
+                'request_id'  => $body['request_id'] ?? null,
+                'message'     => $body['message'] ?? null,
+            ]);
+
             if (!($body['return'] ?? false)) {
-                Log::warning('Fast2SMS send failed', [
-                    'phone'    => $phone,
-                    'response' => $body,
-                ]);
-            } else {
-                Log::info('Fast2SMS OTP sent', ['phone' => $phone, 'request_id' => $body['request_id'] ?? null]);
+                Log::warning('Fast2SMS: send failed', ['phone' => $phone, 'body' => $body]);
             }
         } catch (\Throwable $e) {
-            Log::error('Fast2SMS exception', ['phone' => $phone, 'error' => $e->getMessage()]);
+            Log::error('Fast2SMS: exception', [
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+                'class' => get_class($e),
+            ]);
         }
     }
 
