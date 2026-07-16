@@ -201,9 +201,15 @@ class OtpService
         Log::info("OTP for {$phone}: {$otp}");
 
         $apiKey = config('services.fast2sms.api_key');
+        $otpId  = config('services.fast2sms.otp_id');
 
         if (!$apiKey) {
             Log::warning('Fast2SMS API key not configured — OTP not sent via SMS.');
+            return;
+        }
+
+        if (!$otpId) {
+            Log::warning('Fast2SMS OTP ID not configured — OTP not sent via SMS.');
             return;
         }
 
@@ -213,6 +219,7 @@ class OtpService
             $response = Http::withHeaders(['authorization' => $apiKey])
                 ->post('https://www.fast2sms.com/dev/otp/send', [
                     'route'            => 'otp',
+                    'otp_id'           => $otpId,
                     'variables_values' => $otp,
                     'mobile'           => $phone,
                 ]);
