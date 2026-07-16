@@ -209,11 +209,10 @@ class OtpService
 
         try {
             $response = Http::withHeaders(['authorization' => $apiKey])
-                ->get('https://www.fast2sms.com/dev/bulkV2', [
-                    'route'   => 'q',
-                    'message' => "Your OTP is {$otp}. Valid for 10 minutes.",
-                    'numbers' => $phone,
-                    'flash'   => 0,
+                ->post('https://www.fast2sms.com/dev/otp/send', [
+                    'route'            => 'otp',
+                    'variables_values' => $otp,
+                    'numbers'          => $phone,
                 ]);
 
             $body = $response->json();
