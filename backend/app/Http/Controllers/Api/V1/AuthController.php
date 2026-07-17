@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Interfaces\AuthRepositoryInterface;
+use App\Mail\EmailChangeMail;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -106,9 +110,69 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'success' => true,
-            'user' => $this->userPayload($user)
+            'success'       => true,
+            'user'          => $this->userPayload($user),
+            'pending_email' => $user->pending_email,
         ]);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $data = $request->validated();
+
+        $emailChanged = $user->email !== $data['email'];
+
+        $user->update(['name' => $data['name']]);
+
+        if ($emailChanged) {
+            $token = Str::random(64);
+            $user->update([
+                'pending_email'      => $data['email'],
+                'email_change_token' => $token,
+            ]);
+            try {
+                Mail::to($data['email'])->send(new EmailChangeMail($user, $token));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('EmailChangeMail send failed: ' . $e->getMessage());
+            }
+        }
+
+        $user->refresh();
+
+        return response()->json([
+            'success'       => true,
+            'email_changed' => $emailChanged,
+            'pending_email' => $user->pending_email,
+            'user'          => $this->userPayload($user),
+        ]);
+    }
+
+    public function verifyEmailChange(Request $request)
+    {
+        $token       = (string) $request->query('token', '');
+        $frontendUrl = rtrim(env('APP_FRONTEND_URL', config('app.url')), '/');
+
+        if (!$token) {
+            return redirect("{$frontendUrl}/profile?email_error=invalid");
+        }
+
+        /** @var User|null $user */
+        $user = User::where('email_change_token', $token)->first();
+
+        if (!$user || !$user->pending_email) {
+            return redirect("{$frontendUrl}/profile?email_error=invalid");
+        }
+
+        $user->update([
+            'email'              => $user->pending_email,
+            'pending_email'      => null,
+            'email_change_token' => null,
+            'email_verified_at'  => now(),
+        ]);
+
+        return redirect("{$frontendUrl}/profile?email_verified=1");
     }
 
     public function logout(Request $request)

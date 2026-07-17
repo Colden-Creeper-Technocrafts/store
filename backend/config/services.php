@@ -43,7 +43,6 @@ return [
 
     'fast2sms' => [
         'api_key' => env('FAST2SMS_API_KEY'),
-        'otp_id'  => env('FAST2SMS_OTP_ID'),
     ],
 
 ];

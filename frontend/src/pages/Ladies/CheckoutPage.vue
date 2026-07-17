@@ -287,8 +287,8 @@ const submit = async () => {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-stone-700">Phone <span class="font-normal text-stone-400">(optional)</span></label>
-            <input v-model="form.shipping_phone" type="tel"
+            <label class="block text-sm font-medium text-stone-700">Phone</label>
+            <input v-model="form.shipping_phone" type="tel" required placeholder="10-digit mobile number"
               class="mt-1 w-full border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-stone-500" />
           </div>
 

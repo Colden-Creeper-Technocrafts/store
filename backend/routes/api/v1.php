@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\OtpController;
 use App\Http\Controllers\Api\V1\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\AdminNotificationController;
 use App\Http\Controllers\Api\V1\AdminSettingsController;
+use App\Http\Controllers\Api\V1\AdminCartController;
 use App\Http\Controllers\Api\V1\AdminCustomerController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
@@ -28,16 +29,19 @@ Route::get('/storefront/categories', [StorefrontController::class, 'categories']
 Route::get('/storefront/coupons', [StorefrontController::class, 'coupons']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::get('/storefront/products/{slug}', [StorefrontController::class, 'productDetail']);
-Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout']);
+Route::post('/checkout/guest', [CheckoutController::class, 'guestCheckout'])->middleware('throttle:5,1');
 Route::post('/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::get('/shipping/check', [ShippingController::class, 'check']);
 Route::post('/coupons/validate', [CouponController::class, 'validateCode']);
 
+// Profile email verification (public — link arrives via email, no auth header)
+Route::get('/profile/verify-email', [AuthController::class, 'verifyEmailChange']);
+
 // OTP — public endpoints
-Route::post('/otp/send',          [OtpController::class, 'send']);
-Route::post('/otp/verify',        [OtpController::class, 'verify']);
-Route::post('/otp/login/send',    [OtpController::class, 'loginSend']);
-Route::post('/otp/login/verify',  [OtpController::class, 'loginVerify']);
+Route::post('/otp/send',          [OtpController::class, 'send'])->middleware('throttle:5,1');
+Route::post('/otp/verify',        [OtpController::class, 'verify'])->middleware('throttle:10,1');
+Route::post('/otp/login/send',    [OtpController::class, 'loginSend'])->middleware('throttle:5,1');
+Route::post('/otp/login/verify',  [OtpController::class, 'loginVerify'])->middleware('throttle:10,1');
 Route::get('/otp/verify-email',   [OtpController::class, 'verifyEmail']);
 
 // Razorpay — public so guest checkouts work; ownership is validated inside each method
@@ -48,6 +52,7 @@ Route::post('/payments/razorpay/webhook', [RazorpayController::class, 'webhook']
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/profile', [AuthController::class, 'profile']);
+    Route::patch('/profile', [AuthController::class, 'updateProfile']);
 
     // Saved addresses
     Route::get('/addresses', [AddressController::class, 'index']);
@@ -134,6 +139,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin/customers')->group(function () {
         Route::get('/', [AdminCustomerController::class, 'index']);
         Route::get('/{id}', [AdminCustomerController::class, 'show']);
+    });
+
+    // Admin cart management
+    Route::prefix('admin/carts')->group(function () {
+        Route::get('/', [AdminCartController::class, 'index']);
+        Route::delete('/{id}', [AdminCartController::class, 'destroy']);
     });
 
     // Admin notification settings & logs

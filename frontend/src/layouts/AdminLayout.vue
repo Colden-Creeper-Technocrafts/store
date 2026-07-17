@@ -29,6 +29,7 @@ const menuItems = [
     icon: '👥',
     children: [
       { title: 'All Customers', to: '/backstore/customers' },
+      { title: 'Active Carts', to: '/backstore/carts' },
     ]
   },
   {

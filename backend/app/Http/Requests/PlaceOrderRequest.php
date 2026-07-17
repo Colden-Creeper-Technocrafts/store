@@ -14,9 +14,9 @@ class PlaceOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shipping_name'        => ['required', 'string', 'max:255'],
-            'shipping_email'       => ['required', 'email', 'max:255'],
-            'shipping_phone'       => ['nullable', 'string', 'max:30'],
+            'shipping_name'        => ['required', 'string', 'min:3', 'max:255'],
+            'shipping_email'       => ['required', 'email:rfc,dns', 'max:255'],
+            'shipping_phone'       => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
             'shipping_address'     => ['required', 'string', 'max:500'],
             'shipping_city'        => ['required', 'string', 'max:100'],
             'shipping_postal_code' => ['required', 'string', 'max:20'],

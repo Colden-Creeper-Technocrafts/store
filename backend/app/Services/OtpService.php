@@ -201,44 +201,33 @@ class OtpService
         Log::info("OTP for {$phone}: {$otp}");
 
         $apiKey = config('services.fast2sms.api_key');
-        $otpId  = config('services.fast2sms.otp_id');
 
         if (!$apiKey) {
             Log::warning('Fast2SMS API key not configured — OTP not sent via SMS.');
             return;
         }
 
-        if (!$otpId) {
-            Log::warning('Fast2SMS OTP ID not configured — OTP not sent via SMS.');
-            return;
-        }
-
-        Log::info('Fast2SMS: sending OTP', ['phone' => $phone]);
-
         try {
             $response = Http::withHeaders(['authorization' => $apiKey])
-                ->post('https://www.fast2sms.com/dev/otp/send', [
-                    'route'            => 'otp',
-                    'otp_id'           => $otpId,
-                    'variables_values' => $otp,
-                    'mobile'           => $phone,
+                ->get('https://www.fast2sms.com/dev/bulkV2', [
+                    'route'   => 'q',
+                    'message' => "Your OTP is {$otp}. Valid for 10 minutes.",
+                    'numbers' => $phone,
+                    'flash'   => 0,
                 ]);
 
             $body = $response->json();
 
-            Log::info('Fast2SMS: response', [
-                'phone'       => $phone,
-                'status'      => $response->status(),
-                'return'      => $body['return'] ?? null,
-                'request_id'  => $body['request_id'] ?? null,
-                'message'     => $body['message'] ?? null,
-            ]);
-
             if (!($body['return'] ?? false)) {
-                Log::warning('Fast2SMS: send failed', ['phone' => $phone, 'body' => $body]);
+                Log::warning('Fast2SMS send failed', [
+                    'phone'    => $phone,
+                    'response' => $body,
+                ]);
+            } else {
+                Log::info('Fast2SMS OTP sent', ['phone' => $phone, 'request_id' => $body['request_id'] ?? null]);
             }
         } catch (\Throwable $e) {
-            Log::error('Fast2SMS: exception', [
+            Log::error('Fast2SMS exception', [
                 'phone' => $phone,
                 'error' => $e->getMessage(),
                 'class' => get_class($e),

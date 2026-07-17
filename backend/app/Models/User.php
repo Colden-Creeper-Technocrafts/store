@@ -39,6 +39,8 @@ class User extends Authenticatable
         'phone',
         'password',
         'phone_verified_at',
+        'pending_email',
+        'email_change_token',
     ];
 
     /**
