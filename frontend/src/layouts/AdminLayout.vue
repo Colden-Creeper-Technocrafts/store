@@ -25,10 +25,10 @@ const menuItems = [
     ]
   },
   {
-    title: 'Customers',
+    title: 'Users',
     icon: '👥',
     children: [
-      { title: 'All Customers', to: '/backstore/customers' },
+      { title: 'All Users', to: '/backstore/users' },
       { title: 'Active Carts', to: '/backstore/carts' },
     ]
   },
@@ -69,7 +69,7 @@ const menuItems = [
   }
 ]
 
-const navigationOrder = ['Dashboard', 'Products', 'Orders', 'Customers', 'Marketing', 'Shipping', 'Settings']
+const navigationOrder = ['Dashboard', 'Products', 'Orders', 'Users', 'Marketing', 'Shipping', 'Settings']
 const orderedMenuItems = computed(() =>
   [...menuItems].sort((first, second) => navigationOrder.indexOf(first.title) - navigationOrder.indexOf(second.title))
 )

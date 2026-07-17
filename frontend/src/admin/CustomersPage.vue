@@ -3,6 +3,7 @@ import { ref, reactive, watch } from 'vue'
 import {
   fetchAdminCustomers,
   fetchAdminCustomer,
+  createAdminCustomer,
   type AdminCustomer,
   type AdminCustomerDetail,
   type CustomerFilters,
@@ -90,6 +91,51 @@ function closeDetail() {
   selectedCustomer.value = null
 }
 
+// ── Create customer modal ──────────────────────────────────────────────────
+const showCreateModal = ref(false)
+const createForm = reactive({ name: '', email: '', phone: '' })
+const createSaving = ref(false)
+const createError = ref('')
+const createSuccess = ref('')
+
+function openCreateModal() {
+  createForm.name = ''
+  createForm.email = ''
+  createForm.phone = ''
+  createError.value = ''
+  createSuccess.value = ''
+  showCreateModal.value = true
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false
+}
+
+async function submitCreate() {
+  createError.value = ''
+  createSaving.value = true
+  try {
+    const payload: { name: string; email: string; phone?: string } = {
+      name:  createForm.name.trim(),
+      email: createForm.email.trim(),
+    }
+    if (createForm.phone.trim()) payload.phone = createForm.phone.trim()
+
+    await createAdminCustomer(payload)
+    createSuccess.value = `Account created. Login credentials sent to ${payload.email}.`
+    await load()
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
+    if (e.response?.data?.errors) {
+      createError.value = Object.values(e.response.data.errors).flat().join(' ')
+    } else {
+      createError.value = e.response?.data?.message ?? 'Failed to create customer.'
+    }
+  } finally {
+    createSaving.value = false
+  }
+}
+
 function fmt(val: number | string | null) {
   return val != null ? `₹${Number(val).toFixed(2)}` : '₹0.00'
 }
@@ -109,6 +155,12 @@ watch(() => [filters.page, filters.per_page, filters.search], load, { immediate:
         <h1 class="text-2xl font-bold text-slate-900">Customers</h1>
         <p class="mt-1 text-sm text-slate-500">{{ meta.total }} registered customers</p>
       </div>
+      <button
+        @click="openCreateModal"
+        class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+      >
+        + Create Customer
+      </button>
     </div>
 
     <!-- Error -->
@@ -215,6 +267,84 @@ watch(() => [filters.page, filters.per_page, filters.search], load, { immediate:
     </div>
   </div>
 
+  <!-- Create Customer Modal -->
+  <transition name="fade">
+    <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <h2 class="text-lg font-semibold text-slate-900">Create Customer</h2>
+          <button @click="closeCreateModal" class="text-slate-400 transition hover:text-slate-700">✕</button>
+        </div>
+
+        <div class="space-y-4 p-6">
+          <!-- Success state -->
+          <div v-if="createSuccess" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {{ createSuccess }}
+          </div>
+
+          <template v-if="!createSuccess">
+            <!-- Error -->
+            <div v-if="createError" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {{ createError }}
+            </div>
+
+            <!-- Name -->
+            <div>
+              <label class="mb-1 block text-xs font-medium text-slate-600">Full Name <span class="text-rose-500">*</span></label>
+              <input
+                v-model="createForm.name"
+                type="text"
+                placeholder="e.g. Priya Sharma"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label class="mb-1 block text-xs font-medium text-slate-600">Email <span class="text-rose-500">*</span></label>
+              <input
+                v-model="createForm.email"
+                type="email"
+                placeholder="e.g. priya@example.com"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+
+            <!-- Phone -->
+            <div>
+              <label class="mb-1 block text-xs font-medium text-slate-600">Phone <span class="text-slate-400">(optional)</span></label>
+              <input
+                v-model="createForm.phone"
+                type="tel"
+                placeholder="10-digit mobile number"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+
+            <p class="text-xs text-slate-400">A strong password will be auto-generated and emailed to the customer.</p>
+          </template>
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <button
+            @click="closeCreateModal"
+            class="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+          >
+            {{ createSuccess ? 'Close' : 'Cancel' }}
+          </button>
+          <button
+            v-if="!createSuccess"
+            @click="submitCreate"
+            :disabled="createSaving"
+            class="rounded-xl bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+          >
+            {{ createSaving ? 'Creating…' : 'Create Customer' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
+
   <!-- Slide-over detail panel -->
   <transition name="slideover">
     <div
@@ -295,11 +425,15 @@ watch(() => [filters.page, filters.per_page, filters.search], load, { immediate:
 
 <style scoped>
 .slideover-enter-active,
-.slideover-leave-active {
+.slideover-leave-active,
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.2s ease;
 }
 .slideover-enter-from,
-.slideover-leave-to {
+.slideover-leave-to,
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 </style>

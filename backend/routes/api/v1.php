@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AdminNotificationController;
 use App\Http\Controllers\Api\V1\AdminSettingsController;
 use App\Http\Controllers\Api\V1\AdminCartController;
 use App\Http\Controllers\Api\V1\AdminCustomerController;
+use App\Http\Controllers\Api\V1\AdminUsersController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
 use App\Http\Controllers\Api\V1\ShippingController;
@@ -134,9 +135,16 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
         });
 
+        // User management (all roles)
+        Route::prefix('admin/users')->group(function () {
+            Route::get('/', [AdminUsersController::class, 'index']);
+            Route::post('/', [AdminUsersController::class, 'store']);
+        });
+
         // Customer management
         Route::prefix('admin/customers')->group(function () {
             Route::get('/', [AdminCustomerController::class, 'index']);
+            Route::post('/', [AdminCustomerController::class, 'store']);
             Route::get('/{id}', [AdminCustomerController::class, 'show']);
         });
 

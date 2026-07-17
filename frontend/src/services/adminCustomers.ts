@@ -43,3 +43,14 @@ export const fetchAdminCustomer = async (id: number): Promise<AdminCustomerDetai
   const response = await api.get(`/admin/customers/${id}`)
   return response.data.customer
 }
+
+export type CreateCustomerPayload = {
+  name: string
+  email: string
+  phone?: string
+}
+
+export const createAdminCustomer = async (payload: CreateCustomerPayload): Promise<AdminCustomer> => {
+  const response = await api.post('/admin/customers', payload)
+  return response.data.customer
+}

@@ -10,4 +10,6 @@ interface CustomerRepositoryInterface
     public function list(array $filters, int $perPage): LengthAwarePaginator;
 
     public function find(int $id): ?User;
+
+    public function create(array $data): User;
 }

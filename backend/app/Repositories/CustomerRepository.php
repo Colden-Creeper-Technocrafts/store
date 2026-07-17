@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Interfaces\CustomerRepositoryInterface;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class CustomerRepository implements CustomerRepositoryInterface
 {
@@ -39,5 +40,14 @@ class CustomerRepository implements CustomerRepositoryInterface
                   ->select(['id', 'user_id', 'status', 'payment_status', 'total', 'created_at']);
             }])
             ->find($id);
+    }
+
+    public function create(array $data): User
+    {
+        return DB::transaction(function () use ($data) {
+            $user = User::create($data);
+            $user->assignRole('Customer');
+            return $user;
+        });
     }
 }
