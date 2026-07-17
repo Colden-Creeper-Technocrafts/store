@@ -423,7 +423,7 @@ async function save() {
               <input
                 ref="faviconFileInput"
                 type="file"
-                accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml"
+                accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico"
                 class="hidden"
                 @change="onFaviconSelect"
               />

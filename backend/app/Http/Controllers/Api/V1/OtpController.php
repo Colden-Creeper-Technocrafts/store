@@ -6,19 +6,38 @@ use App\Http\Controllers\Controller;
 use App\Services\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class OtpController extends Controller
 {
     public function __construct(private readonly OtpService $otp) {}
 
+    private function checkPhoneRateLimit(string $phone): ?JsonResponse
+    {
+        $key = 'otp_phone:' . $phone;
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'success' => false,
+                'message' => "Too many OTP requests for this number. Try again in {$seconds} seconds.",
+            ], 429);
+        }
+        RateLimiter::hit($key, 600); // 3 per 10-minute window, per phone number
+        return null;
+    }
+
     /** Send OTP after guest checkout (called by frontend post-order) */
     public function send(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'phone'    => ['required', 'string', 'max:30'],
+            'phone'    => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
             'email'    => ['nullable', 'email'],
             'order_id' => ['nullable', 'integer', 'exists:orders,id'],
         ]);
+
+        if ($error = $this->checkPhoneRateLimit($data['phone'])) {
+            return $error;
+        }
 
         $this->otp->sendOrderOtp(
             $data['phone'],
@@ -62,8 +81,12 @@ class OtpController extends Controller
     public function loginSend(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'phone' => ['required', 'string', 'max:30'],
+            'phone' => ['required', 'string', 'regex:/^[6-9]\d{9}$/'],
         ]);
+
+        if ($error = $this->checkPhoneRateLimit($data['phone'])) {
+            return $error;
+        }
 
         $this->otp->sendLoginOtp($data['phone']);
 

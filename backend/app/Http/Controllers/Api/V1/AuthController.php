@@ -129,8 +129,9 @@ class AuthController extends Controller
         if ($emailChanged) {
             $token = Str::random(64);
             $user->update([
-                'pending_email'      => $data['email'],
-                'email_change_token' => $token,
+                'pending_email'                  => $data['email'],
+                'email_change_token'             => $token,
+                'email_change_token_expires_at'  => now()->addHours(24),
             ]);
             try {
                 Mail::to($data['email'])->send(new EmailChangeMail($user, $token));
@@ -165,11 +166,21 @@ class AuthController extends Controller
             return redirect("{$frontendUrl}/profile?email_error=invalid");
         }
 
+        if (!$user->email_change_token_expires_at || $user->email_change_token_expires_at->isPast()) {
+            $user->update([
+                'pending_email'                 => null,
+                'email_change_token'            => null,
+                'email_change_token_expires_at' => null,
+            ]);
+            return redirect("{$frontendUrl}/profile?email_error=expired");
+        }
+
         $user->update([
-            'email'              => $user->pending_email,
-            'pending_email'      => null,
-            'email_change_token' => null,
-            'email_verified_at'  => now(),
+            'email'                         => $user->pending_email,
+            'pending_email'                 => null,
+            'email_change_token'            => null,
+            'email_change_token_expires_at' => null,
+            'email_verified_at'             => now(),
         ]);
 
         return redirect("{$frontendUrl}/profile?email_verified=1");

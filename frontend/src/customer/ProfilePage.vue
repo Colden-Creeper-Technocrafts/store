@@ -24,7 +24,7 @@ const pendingEmail = ref<string | null>(null)
 
 // Notices from email verification redirect
 const emailVerifiedNotice = ref(false)
-const emailErrorNotice = ref(false)
+const emailErrorNotice = ref('')
 
 onMounted(async () => {
   if (route.query.email_verified === '1') {
@@ -32,7 +32,9 @@ onMounted(async () => {
     router.replace('/profile')
   }
   if (route.query.email_error) {
-    emailErrorNotice.value = true
+    emailErrorNotice.value = (route.query.email_error as string) === 'expired'
+      ? 'expired'
+      : 'invalid'
     router.replace('/profile')
   }
   // Fetch current pending_email if any
@@ -99,8 +101,8 @@ const logout = () => {
 
     <!-- Email error notice -->
     <div v-if="emailErrorNotice" class="border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-start justify-between gap-3">
-      <span>The email verification link is invalid or has already been used.</span>
-      <button @click="emailErrorNotice = false" class="shrink-0 text-rose-400 hover:text-rose-700">✕</button>
+      <span>{{ emailErrorNotice === 'expired' ? 'The email verification link has expired. Please request a new one.' : 'The email verification link is invalid or has already been used.' }}</span>
+      <button @click="emailErrorNotice = ''" class="shrink-0 text-rose-400 hover:text-rose-700">✕</button>
     </div>
 
     <!-- Pending email notice -->

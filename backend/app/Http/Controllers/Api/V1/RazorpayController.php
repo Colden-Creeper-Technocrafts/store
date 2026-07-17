@@ -158,17 +158,20 @@ class RazorpayController extends Controller
     {
         $webhookSecret = config('services.razorpay.webhook_secret');
 
-        if ($webhookSecret) {
-            $signature = $request->header('X-Razorpay-Signature', '');
-            $body      = $request->getContent();
-            $expected  = hash_hmac('sha256', $body, $webhookSecret);
+        if (!$webhookSecret) {
+            Log::error('Razorpay webhook: RAZORPAY_WEBHOOK_SECRET is not configured — request rejected.');
+            return response()->json(['message' => 'Webhook not configured.'], 500);
+        }
 
-            if (!hash_equals($expected, $signature)) {
-                Log::warning('Razorpay webhook: invalid signature', [
-                    'received' => $signature,
-                ]);
-                return response()->json(['message' => 'Invalid signature'], 400);
-            }
+        $signature = $request->header('X-Razorpay-Signature', '');
+        $body      = $request->getContent();
+        $expected  = hash_hmac('sha256', $body, $webhookSecret);
+
+        if (!hash_equals($expected, $signature)) {
+            Log::warning('Razorpay webhook: invalid signature', [
+                'received' => $signature,
+            ]);
+            return response()->json(['message' => 'Invalid signature'], 400);
         }
 
         $event   = $request->input('event');

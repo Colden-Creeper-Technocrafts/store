@@ -21,9 +21,9 @@ use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\FulfillmentController;
 use App\Http\Controllers\Api\V1\StorefrontController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/backstore/login', [AuthController::class, 'backstoreLogin']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/backstore/login', [AuthController::class, 'backstoreLogin'])->middleware('throttle:5,1');
 Route::get('/storefront', [StorefrontController::class, 'show']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 Route::get('/storefront/coupons', [StorefrontController::class, 'coupons']);
@@ -84,77 +84,78 @@ Route::middleware('auth:sanctum')->group(function () {
     // Coupons (admin CRUD)
     Route::apiResource('/coupons', CouponController::class);
 
-    // Admin analytics
-    Route::get('/admin/analytics/summary', [AdminAnalyticsController::class, 'summary']);
+    // ── Admin-only routes (requires Admin role) ───────────────────────────
+    Route::middleware('admin')->group(function () {
 
-    // Admin settings
-    Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
-    Route::put('/admin/settings/{id}', [AdminSettingsController::class, 'update']);
-    Route::post('/admin/settings/{id}/logo', [AdminSettingsController::class, 'uploadLogo']);
-    Route::post('/admin/settings/{id}/banner-image', [AdminSettingsController::class, 'uploadBannerImage']);
-    Route::post('/admin/settings/{id}/favicon', [AdminSettingsController::class, 'uploadFavicon']);
+        // Analytics
+        Route::get('/admin/analytics/summary', [AdminAnalyticsController::class, 'summary']);
 
-    // Admin order management
-    Route::prefix('admin/orders')->group(function () {
-        Route::get('/', [AdminOrderController::class, 'index']);
-        Route::get('/{id}', [AdminOrderController::class, 'show']);
-        Route::patch('/{id}/status', [AdminOrderController::class, 'updateStatus']);
-        Route::patch('/{id}/payment-status', [AdminOrderController::class, 'updatePaymentStatus']);
-        Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
-        Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
-        Route::patch('/{id}/return-status', [AdminOrderController::class, 'updateReturnStatus']);
-        Route::post('/{id}/fulfill', [FulfillmentController::class, 'fulfill']);
-        Route::get('/{id}/tracking-live', [FulfillmentController::class, 'tracking']);
-    });
+        // Settings
+        Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
+        Route::put('/admin/settings/{id}', [AdminSettingsController::class, 'update']);
+        Route::post('/admin/settings/{id}/logo', [AdminSettingsController::class, 'uploadLogo']);
+        Route::post('/admin/settings/{id}/banner-image', [AdminSettingsController::class, 'uploadBannerImage']);
+        Route::post('/admin/settings/{id}/favicon', [AdminSettingsController::class, 'uploadFavicon']);
 
-    // Admin shipping management
-    Route::prefix('admin/shipping')->group(function () {
-        // Providers
-        Route::get('/providers', [AdminShippingController::class, 'providers']);
-        Route::put('/providers/{id}', [AdminShippingController::class, 'updateProvider']);
-        Route::post('/providers/{id}/validate', [AdminShippingController::class, 'validateProvider']);
+        // Order management
+        Route::prefix('admin/orders')->group(function () {
+            Route::get('/', [AdminOrderController::class, 'index']);
+            Route::get('/{id}', [AdminOrderController::class, 'show']);
+            Route::patch('/{id}/status', [AdminOrderController::class, 'updateStatus']);
+            Route::patch('/{id}/payment-status', [AdminOrderController::class, 'updatePaymentStatus']);
+            Route::patch('/{id}/tracking', [AdminOrderController::class, 'updateTracking']);
+            Route::patch('/{id}/notes', [AdminOrderController::class, 'updateNotes']);
+            Route::patch('/{id}/return-status', [AdminOrderController::class, 'updateReturnStatus']);
+            Route::post('/{id}/fulfill', [FulfillmentController::class, 'fulfill']);
+            Route::get('/{id}/tracking-live', [FulfillmentController::class, 'tracking']);
+        });
 
-        // Zones
-        Route::get('/zones', [AdminShippingController::class, 'zones']);
-        Route::post('/zones', [AdminShippingController::class, 'storeZone']);
-        Route::put('/zones/{id}', [AdminShippingController::class, 'updateZone']);
-        Route::delete('/zones/{id}', [AdminShippingController::class, 'destroyZone']);
-        Route::post('/zones/{zoneId}/locations', [AdminShippingController::class, 'storeZoneLocation']);
-        Route::delete('/zones/{zoneId}/locations/{locationId}', [AdminShippingController::class, 'destroyZoneLocation']);
+        // Shipping management
+        Route::prefix('admin/shipping')->group(function () {
+            Route::get('/providers', [AdminShippingController::class, 'providers']);
+            Route::put('/providers/{id}', [AdminShippingController::class, 'updateProvider']);
+            Route::post('/providers/{id}/validate', [AdminShippingController::class, 'validateProvider']);
 
-        // Methods
-        Route::get('/methods', [AdminShippingController::class, 'methods']);
-        Route::post('/methods', [AdminShippingController::class, 'storeMethod']);
-        Route::put('/methods/{id}', [AdminShippingController::class, 'updateMethod']);
-        Route::delete('/methods/{id}', [AdminShippingController::class, 'destroyMethod']);
+            Route::get('/zones', [AdminShippingController::class, 'zones']);
+            Route::post('/zones', [AdminShippingController::class, 'storeZone']);
+            Route::put('/zones/{id}', [AdminShippingController::class, 'updateZone']);
+            Route::delete('/zones/{id}', [AdminShippingController::class, 'destroyZone']);
+            Route::post('/zones/{zoneId}/locations', [AdminShippingController::class, 'storeZoneLocation']);
+            Route::delete('/zones/{zoneId}/locations/{locationId}', [AdminShippingController::class, 'destroyZoneLocation']);
 
-        // Rates
-        Route::get('/methods/{methodId}/rates', [AdminShippingController::class, 'rates']);
-        Route::post('/methods/{methodId}/rates', [AdminShippingController::class, 'storeRate']);
-        Route::put('/rates/{id}', [AdminShippingController::class, 'updateRate']);
-        Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
-    });
+            Route::get('/methods', [AdminShippingController::class, 'methods']);
+            Route::post('/methods', [AdminShippingController::class, 'storeMethod']);
+            Route::put('/methods/{id}', [AdminShippingController::class, 'updateMethod']);
+            Route::delete('/methods/{id}', [AdminShippingController::class, 'destroyMethod']);
 
-    // Admin customer management
-    Route::prefix('admin/customers')->group(function () {
-        Route::get('/', [AdminCustomerController::class, 'index']);
-        Route::get('/{id}', [AdminCustomerController::class, 'show']);
-    });
+            Route::get('/methods/{methodId}/rates', [AdminShippingController::class, 'rates']);
+            Route::post('/methods/{methodId}/rates', [AdminShippingController::class, 'storeRate']);
+            Route::put('/rates/{id}', [AdminShippingController::class, 'updateRate']);
+            Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
+        });
 
-    // Admin cart management
-    Route::prefix('admin/carts')->group(function () {
-        Route::get('/', [AdminCartController::class, 'index']);
-        Route::delete('/{id}', [AdminCartController::class, 'destroy']);
-    });
+        // Customer management
+        Route::prefix('admin/customers')->group(function () {
+            Route::get('/', [AdminCustomerController::class, 'index']);
+            Route::get('/{id}', [AdminCustomerController::class, 'show']);
+        });
 
-    // Admin notification settings & logs
-    Route::prefix('admin/notifications')->group(function () {
-        Route::get('/settings', [AdminNotificationController::class, 'show']);
-        Route::put('/settings', [AdminNotificationController::class, 'update']);
-        Route::get('/logs', [AdminNotificationController::class, 'logs']);
-    });
+        // Cart management
+        Route::prefix('admin/carts')->group(function () {
+            Route::get('/', [AdminCartController::class, 'index']);
+            Route::delete('/{id}', [AdminCartController::class, 'destroy']);
+        });
+
+        // Notification settings & logs
+        Route::prefix('admin/notifications')->group(function () {
+            Route::get('/settings', [AdminNotificationController::class, 'show']);
+            Route::put('/settings', [AdminNotificationController::class, 'update']);
+            Route::get('/logs', [AdminNotificationController::class, 'logs']);
+        });
+
+    }); // end middleware('admin')
 
     Route::post('/otp/set-password', [OtpController::class, 'setPassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-});
+}); // end middleware('auth:sanctum')

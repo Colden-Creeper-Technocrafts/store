@@ -41,6 +41,7 @@ class User extends Authenticatable
         'phone_verified_at',
         'pending_email',
         'email_change_token',
+        'email_change_token_expires_at',
     ];
 
     /**
@@ -61,8 +62,9 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'phone_verified_at' => 'datetime',
+            'email_verified_at'              => 'datetime',
+            'phone_verified_at'              => 'datetime',
+            'email_change_token_expires_at'  => 'datetime',
             'password'          => 'hashed',
         ];
     }

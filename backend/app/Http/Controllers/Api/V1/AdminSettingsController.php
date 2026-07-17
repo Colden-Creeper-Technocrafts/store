@@ -117,7 +117,7 @@ class AdminSettingsController
     public function uploadFavicon(Request $request, int $id): JsonResponse
     {
         $request->validate([
-            'favicon' => ['required', 'file', 'mimes:ico,png,jpg,jpeg,svg+xml,svg', 'max:512'],
+            'favicon' => ['required', 'file', 'mimes:ico,png,jpg,jpeg', 'max:512'],
         ]);
 
         $settings = StoreSetting::find($id);
