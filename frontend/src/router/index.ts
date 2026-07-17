@@ -183,35 +183,46 @@ const getSession = () => {
 router.beforeEach((to) => {
   const { isLoggedIn, isAdmin, isCustomer } = getSession()
 
+  console.log('[router] navigating to:', to.path, { isLoggedIn, isAdmin, isCustomer, requiresAdmin: !!to.meta.requiresAdmin })
+
   if (to.meta.requiresAdmin) {
     if (!isLoggedIn) {
+      console.log('[router] requiresAdmin but not logged in → /backstore/login')
       return '/backstore/login'
     }
 
     if (!isAdmin) {
-      return '/'
+      console.log('[router] requiresAdmin but not admin (role mismatch) → /backstore/login')
+      return '/backstore/login'
     }
   }
 
   if (to.path === '/backstore/login' && isLoggedIn && isAdmin) {
+    console.log('[router] already admin, redirecting away from login → /backstore/dashboard')
     return '/backstore/dashboard'
   }
 
   if ((to.path === '/login' || to.path === '/register') && isLoggedIn) {
-    return isAdmin ? '/backstore/dashboard' : '/'
+    const dest = isAdmin ? '/backstore/dashboard' : '/'
+    console.log('[router] already logged in on auth page → ' + dest)
+    return dest
   }
 
   if (to.path === '/profile') {
     if (!isLoggedIn) {
+      console.log('[router] /profile requires login → /login')
       return '/login'
     }
 
     if (!isCustomer) {
-      return isAdmin ? '/backstore/dashboard' : '/'
+      const dest = isAdmin ? '/backstore/dashboard' : '/'
+      console.log('[router] /profile: not a customer → ' + dest)
+      return dest
     }
   }
 
   if (to.path === '/orders' && !isLoggedIn && !to.query?.placed) {
+    console.log('[router] /orders requires login → /login')
     return '/login'
   }
 

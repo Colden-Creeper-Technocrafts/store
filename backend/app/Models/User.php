@@ -38,6 +38,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'email_verified_at',
         'phone_verified_at',
         'pending_email',
         'email_change_token',

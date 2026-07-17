@@ -37,10 +37,12 @@ class AdminCustomerController
         $plain = Str::password(12);
 
         $customer = $this->customers->create([
-            'name'     => $request->input('name'),
-            'email'    => $request->input('email'),
-            'phone'    => $request->input('phone'),
-            'password' => bcrypt($plain),
+            'name'              => $request->input('name'),
+            'email'             => $request->input('email'),
+            'phone'             => $request->input('phone'),
+            'password'          => $plain,
+            'email_verified_at' => now(),
+            'phone_verified_at' => now(),
         ]);
 
         Mail::to($customer->email)->send(new WelcomeCustomerMail(

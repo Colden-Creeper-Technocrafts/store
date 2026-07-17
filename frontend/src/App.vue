@@ -23,7 +23,7 @@ watch(storeFavicon, (url) => {
 
 const isLoggedIn = computed(() => !!authStore.token)
 const isStorePage = computed(() => route.meta.layout === 'store')
-const isAdminPage = computed(() => !!route.meta.requiresAdmin)
+const isAdminPage = computed(() => route.path.startsWith('/backstore') && route.path !== '/backstore/login')
 const activeStoreLayout = computed(() => (storeLayout.value === 'grocery' ? GroceryStore : LadiesStore))
 
 const logout = () => {

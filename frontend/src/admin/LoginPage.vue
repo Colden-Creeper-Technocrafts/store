@@ -31,13 +31,20 @@ const login = async () => {
         const { token, user, role } = response.data
         const normalizedRole = (role || user?.role || '').toLowerCase()
 
+        console.log('[login] response:', { token: !!token, role, userRole: user?.role, normalizedRole })
         authStore.setAuth({ token, user, role })
+        console.log('[login] localStorage after setAuth:', {
+            token: localStorage.getItem('token')?.slice(0, 20) + '...',
+            user: localStorage.getItem('user')
+        })
 
         if (normalizedRole === 'admin') {
+            console.log('[login] admin confirmed, pushing to /backstore/dashboard')
             router.push('/backstore/dashboard')
             return
         }
 
+        console.log('[login] not admin, pushing to /')
         router.push('/')
 
     } catch (err) {
