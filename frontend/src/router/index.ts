@@ -20,6 +20,7 @@ import AdminReturnsPage from '../admin/ReturnsPage.vue'
 import AdminFulfillmentPage from '../admin/FulfillmentPage.vue'
 import AdminNotificationsPage from '../admin/NotificationsPage.vue'
 import AdminCartsPage from '../admin/CartsPage.vue'
+import AdminLogsPage from '../admin/LogsPage.vue'
 import CustomerAuthPage from '../customer/AuthPage.vue'
 import CustomerProfilePage from '../customer/ProfilePage.vue'
 import StorefrontAddressesPage from '../pages/Storefront/AddressesPage.vue'
@@ -146,6 +147,11 @@ const routes = [
   {
     path: '/backstore/carts',
     component: AdminCartsPage,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/backstore/logs',
+    component: AdminLogsPage,
     meta: { requiresAdmin: true }
   },
   {

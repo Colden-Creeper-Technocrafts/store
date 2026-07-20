@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AdminNotificationController;
 use App\Http\Controllers\Api\V1\AdminSettingsController;
 use App\Http\Controllers\Api\V1\AdminCartController;
 use App\Http\Controllers\Api\V1\AdminCustomerController;
+use App\Http\Controllers\Api\V1\AdminLogsController;
 use App\Http\Controllers\Api\V1\AdminUsersController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
@@ -152,6 +153,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('admin/carts')->group(function () {
             Route::get('/', [AdminCartController::class, 'index']);
             Route::delete('/{id}', [AdminCartController::class, 'destroy']);
+        });
+
+        // Log viewer
+        Route::prefix('admin/logs')->group(function () {
+            Route::get('/files', [AdminLogsController::class, 'files']);
+            Route::get('/content', [AdminLogsController::class, 'content']);
         });
 
         // Notification settings & logs
