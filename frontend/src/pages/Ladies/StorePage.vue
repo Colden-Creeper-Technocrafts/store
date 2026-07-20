@@ -17,7 +17,7 @@ const sidebarRef = ref<any>(null)
 const addingId = ref<number | null>(null)
 const addError = ref<string | null>(null)
 const search = ref('')
-const sort = ref<'az' | 'za' | 'price-asc' | 'price-desc'>('az')
+const sort = ref<'az' | 'za' | 'price-asc' | 'price-desc' | 'newest'>('az')
 
 const effectivePrice = (p: StorefrontProduct) => Number(p.sale_price ?? p.price ?? 0)
 
@@ -29,6 +29,7 @@ const filtered = computed(() => {
   else if (sort.value === 'za') list.sort((a, b) => b.name.localeCompare(a.name))
   else if (sort.value === 'price-asc') list.sort((a, b) => effectivePrice(a) - effectivePrice(b))
   else if (sort.value === 'price-desc') list.sort((a, b) => effectivePrice(b) - effectivePrice(a))
+  else if (sort.value === 'newest') list.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))
   return list
 })
 
@@ -131,6 +132,7 @@ onMounted(async () => {
           <option value="za">Name Z → A</option>
           <option value="price-asc">Price: Low → High</option>
           <option value="price-desc">Price: High → Low</option>
+          <option value="newest">Newest First</option>
         </select>
       </div>
 
