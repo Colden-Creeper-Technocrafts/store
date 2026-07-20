@@ -11,6 +11,12 @@ const shippingCost = computed(() => {
   if (storeFreeShippingThreshold.value !== null && t >= storeFreeShippingThreshold.value) return 0
   return storeShippingCharge.value
 })
+
+const freeShippingDiff = computed(() => {
+  if (storeFreeShippingThreshold.value === null) return null
+  const diff = storeFreeShippingThreshold.value - cartStore.total
+  return diff > 0 ? diff : 0
+})
 const finalTotal = computed(() => cartStore.total + shippingCost.value)
 
 onMounted(async () => {
@@ -49,6 +55,18 @@ const increment = async (itemId: number, qty: number) => {
     <template v-else>
       <div v-if="cartStore.error" class="border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
         {{ cartStore.error }}
+      </div>
+
+      <!-- Free shipping banner -->
+      <div v-if="freeShippingDiff !== null">
+        <div v-if="freeShippingDiff === 0" class="flex items-center gap-3 border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <span class="text-base">🎉</span>
+          <span class="font-medium">Congratulations! You are eligible for free delivery.</span>
+        </div>
+        <div v-else class="flex items-center gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span class="text-base">🚚</span>
+          <span>Add <strong>{{ formatPrice(freeShippingDiff) }}</strong> more to get free delivery.</span>
+        </div>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
