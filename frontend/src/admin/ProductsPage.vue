@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import type { AdminProduct, AdminProductImage, AdminProductVariant } from '../services/adminProducts'
-import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, adjustProductStock } from '../services/adminProducts'
+import { loadAdminProducts as loadProductsService, createAdminProduct, updateAdminProduct, deleteAdminProduct, loadAdminProductVariants, createAdminProductVariant, updateAdminProductVariant, deleteAdminProductVariant, loadAdminProductImages, createAdminProductImage, updateAdminProductImage, deleteAdminProductImage, adjustProductStock, checkSlugPrefix } from '../services/adminProducts'
 import { loadAdminCategories } from '../services/adminCategories'
 import SearchableSelect from '../components/SearchableSelect.vue'
 
@@ -44,6 +44,40 @@ const form = reactive({
   short_description: '',
   description: ''
 })
+
+const skuChecking = ref(false)
+const takenSkus = ref<string[]>([])
+const skuUserEdited = ref(false)
+
+function toSlug(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+}
+
+async function runSkuCheck() {
+  takenSkus.value = []
+  if (!form.sku) return
+  skuChecking.value = true
+  try {
+    const result = await checkSlugPrefix(form.sku, editingId.value)
+    takenSkus.value = result.taken
+  } catch {
+    takenSkus.value = []
+  } finally {
+    skuChecking.value = false
+  }
+}
+
+function onNameChange() {
+  if (!editingId.value && !skuUserEdited.value) {
+    form.sku = toSlug(form.name)
+    runSkuCheck()
+  }
+}
+
+function onSkuChange() {
+  skuUserEdited.value = true
+  runSkuCheck()
+}
 
 const variantForm = reactive({
   sku: '',
@@ -104,6 +138,9 @@ const resetForm = () => {
   form.status = true
   form.short_description = ''
   form.description = ''
+  takenSkus.value = []
+  skuChecking.value = false
+  skuUserEdited.value = false
   successMessage.value = ''
   errorMessage.value = ''
   showForm.value = false
@@ -163,6 +200,7 @@ const editProduct = async (p: AdminProduct) => {
   editingId.value = p.id
   form.name = p.name
   form.sku = p.sku ?? ''
+  skuUserEdited.value = true
   form.price = p.price ?? 0
   form.quantity = p.quantity ?? 0
   form.category_id = p.category_id ?? null
@@ -591,11 +629,25 @@ onMounted(() => {
             <div class="grid gap-4 lg:grid-cols-2">
               <div>
                 <label class="block text-sm font-medium text-slate-700">Name</label>
-                <input v-model="form.name" type="text" required class="mt-2 w-full rounded-3xl border px-4 py-3" />
+                <input v-model="form.name" type="text" required class="mt-2 w-full rounded-3xl border px-4 py-3" @change="onNameChange" />
+                <div v-if="takenSkus.length" class="mt-2">
+                  <p class="mb-1 text-xs text-slate-500">SKUs already taken with this prefix:</p>
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      v-for="s in takenSkus"
+                      :key="s"
+                      :class="[
+                        'inline-block rounded-full px-2.5 py-0.5 font-mono text-xs',
+                        s === form.sku ? 'bg-rose-100 text-rose-700 font-semibold' : 'bg-slate-100 text-slate-600'
+                      ]"
+                    >{{ s }}</span>
+                  </div>
+                </div>
+                <p v-else-if="form.sku" class="mt-1 text-xs text-emerald-600">SKU available.</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-700">SKU</label>
-                <input v-model="form.sku" type="text" class="mt-2 w-full rounded-3xl border px-4 py-3" />
+                <input v-model="form.sku" type="text" class="mt-2 w-full rounded-3xl border px-4 py-3" @change="onSkuChange" />
               </div>
             </div>
 
@@ -773,4 +825,15 @@ onMounted(() => {
       </div>
     </div>
   </section>
+
+  <!-- SKU check backdrop loader -->
+  <div v-if="skuChecking" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div class="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-xl">
+      <svg class="h-5 w-5 animate-spin text-slate-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+      <span class="text-sm font-medium text-slate-700">Checking SKU…</span>
+    </div>
+  </div>
 </template>

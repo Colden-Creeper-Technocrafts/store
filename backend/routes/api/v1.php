@@ -136,6 +136,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/rates/{id}', [AdminShippingController::class, 'destroyRate']);
         });
 
+        // Product slug uniqueness check
+        Route::get('/admin/products/slug-check', [\App\Http\Controllers\Api\V1\ProductController::class, 'slugCheck']);
+
         // User management (all roles)
         Route::prefix('admin/users')->group(function () {
             Route::get('/', [AdminUsersController::class, 'index']);

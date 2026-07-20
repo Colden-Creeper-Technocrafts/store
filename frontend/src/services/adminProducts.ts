@@ -3,6 +3,7 @@ import api from './api'
 export type AdminProduct = {
   id: number
   name: string
+  slug?: string | null
   sku?: string | null
   price?: number | null
   quantity?: number | null
@@ -34,6 +35,13 @@ export type AdminProductImage = {
   image_url: string
   sort_order: number
   is_primary: boolean
+}
+
+export const checkSlugPrefix = async (prefix: string, excludeId?: number | null): Promise<{ slug: string; taken: string[] }> => {
+  const params: Record<string, any> = { prefix }
+  if (excludeId) params.exclude_id = excludeId
+  const res = await api.get('/admin/products/slug-check', { params })
+  return res.data
 }
 
 export const loadAdminProducts = async (params: Record<string, any> = {}): Promise<{ products: AdminProduct[]; meta: any }> => {

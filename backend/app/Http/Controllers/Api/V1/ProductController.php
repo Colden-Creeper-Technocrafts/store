@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Interfaces\ProductRepositoryInterface;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Database\QueryException;
 
 class ProductController extends Controller
@@ -133,6 +135,27 @@ class ProductController extends Controller
         $product = $this->products->adjustStock($product, (int) $data['quantity']);
 
         return response()->json(['success' => true, 'product' => $product]);
+    }
+
+    public function slugCheck(Request $request): JsonResponse
+    {
+        $prefix = Str::slug((string) $request->input('prefix', ''));
+        $excludeId = $request->input('exclude_id');
+
+        if ($prefix === '') {
+            return response()->json(['slug' => '', 'taken' => []]);
+        }
+
+        $taken = Product::where('sku', 'like', $prefix . '%')
+            ->when($excludeId, fn($q) => $q->where('id', '!=', (int) $excludeId))
+            ->pluck('sku')
+            ->take(10)
+            ->values();
+
+        return response()->json([
+            'slug'  => $prefix,
+            'taken' => $taken,
+        ]);
     }
 
     public function destroy(int $id): JsonResponse
