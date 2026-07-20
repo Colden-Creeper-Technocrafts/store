@@ -493,8 +493,7 @@ onMounted(() => {
     <div class="rounded-3xl bg-white p-8 shadow-sm border border-slate-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm uppercase tracking-[0.24em] text-slate-500">Product master</p>
-          <h1 class="mt-3 text-3xl font-semibold text-slate-900">Products</h1>
+          <h1 class="text-3xl font-semibold text-slate-900">Products</h1>
         </div>
       </div>
 
@@ -620,10 +619,6 @@ onMounted(() => {
           <div v-if="successMessage" class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-700">{{ successMessage }}</div>
 
           <form @submit.prevent="saveProduct" class="space-y-4">
-            <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              Pricing and inventory are managed as the product's default variant.
-            </div>
-
             <div class="grid gap-4 lg:grid-cols-2">
               <div>
                 <label class="block text-sm font-medium text-slate-700">Name</label>

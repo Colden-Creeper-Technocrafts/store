@@ -36,11 +36,8 @@ const menuItems = [
     title: 'Products',
     icon: '📦',
     children: [
-      { title: 'Catalog', to: '/products' },
-      { title: 'Product Master', to: '/backstore/products' },
-      { title: 'Categories', to: '/backstore/categories' },
-      { title: 'Inventory', to: '/backstore/products' },
-      { title: 'Pricing', to: '/backstore/products' }
+      { title: 'All Products', to: '/backstore/products' },
+      { title: 'Categories', to: '/backstore/categories' }
     ]
   },
   {
