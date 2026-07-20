@@ -542,7 +542,6 @@ onMounted(() => {
               <thead>
                 <tr class="text-sm text-slate-600 border-b">
                   <th class="py-2">Name</th>
-                  <th class="py-2">SKU</th>
                   <th class="py-2">Price</th>
                   <th class="py-2">Stock</th>
                   <th class="py-2">Status</th>
@@ -554,7 +553,6 @@ onMounted(() => {
                 <template v-for="p in products" :key="p.id">
                   <tr class="border-b hover:bg-slate-50">
                     <td class="py-3">{{ p.name }}</td>
-                    <td class="py-3">{{ p.sku ?? '—' }}</td>
                     <td class="py-3">{{ p.price ? '₹' + p.price : '—' }}</td>
                     <td class="py-3">
                       <div class="flex items-center gap-2">
@@ -581,7 +579,7 @@ onMounted(() => {
                   </tr>
                   <!-- Inline stock adjust row -->
                   <tr v-if="adjustingProductId === p.id" class="bg-yellow-50 border-b">
-                    <td colspan="7" class="px-3 py-3">
+                    <td colspan="6" class="px-3 py-3">
                       <div class="flex items-center gap-3">
                         <span class="text-sm font-medium text-slate-700">Adjust stock for <strong>{{ p.name }}</strong>:</span>
                         <input
