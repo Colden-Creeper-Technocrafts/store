@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorefrontProductsRequest;
 use App\Interfaces\StorefrontRepositoryInterface;
+use App\Models\SocialLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -75,6 +76,7 @@ class StorefrontController extends Controller
                 'shipping_charge'       => (float) ($store->shipping_charge ?? 0),
                 'free_shipping_threshold' => isset($store->free_shipping_threshold) ? (float) $store->free_shipping_threshold : null,
             ],
+            'social_links' => SocialLink::orderBy('sort_order')->orderBy('id')->get(['id', 'name', 'url', 'icon']),
         ]);
     }
 

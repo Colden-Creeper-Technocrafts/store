@@ -3,12 +3,14 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCartStore } from '../stores/cart'
+import SocialIcon from '../components/SocialIcon.vue'
 import { useStorefront } from '../services/storefront'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const { storeName } = useStorefront()
+const { storeName, socialLinks } = useStorefront()
+const currentYear = new Date().getFullYear()
 
 const normalizedRole = computed(() => authStore.role?.toLowerCase() ?? '')
 const isLoggedIn = computed(() => !!authStore.token)
@@ -127,6 +129,27 @@ watch(isCustomer, (val) => {
         <slot />
       </div>
     </main>
+
+    <footer class="border-t border-emerald-200/80 bg-white/90">
+      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <div class="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+          <p class="text-xs text-emerald-700">&copy; {{ currentYear }} {{ storeName }}. All rights reserved.</p>
+          <div v-if="socialLinks.length" class="grid grid-cols-3 gap-2">
+            <a
+              v-for="link in socialLinks"
+              :key="link.id"
+              :href="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              :title="link.name"
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+            >
+              <SocialIcon :icon="link.icon" class="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 

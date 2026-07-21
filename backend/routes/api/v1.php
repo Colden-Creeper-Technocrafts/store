@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AdminSettingsController;
 use App\Http\Controllers\Api\V1\AdminCartController;
 use App\Http\Controllers\Api\V1\AdminCustomerController;
 use App\Http\Controllers\Api\V1\AdminLogsController;
+use App\Http\Controllers\Api\V1\AdminSocialLinksController;
 use App\Http\Controllers\Api\V1\AdminUsersController;
 use App\Http\Controllers\Api\V1\AdminOrderController;
 use App\Http\Controllers\Api\V1\AdminShippingController;
@@ -156,6 +157,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('admin/carts')->group(function () {
             Route::get('/', [AdminCartController::class, 'index']);
             Route::delete('/{id}', [AdminCartController::class, 'destroy']);
+        });
+
+        // Social links
+        Route::prefix('admin/social-links')->group(function () {
+            Route::get('/', [AdminSocialLinksController::class, 'index']);
+            Route::post('/', [AdminSocialLinksController::class, 'store']);
+            Route::put('/{id}', [AdminSocialLinksController::class, 'update']);
+            Route::delete('/{id}', [AdminSocialLinksController::class, 'destroy']);
         });
 
         // Log viewer

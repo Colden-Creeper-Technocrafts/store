@@ -61,7 +61,8 @@ const menuItems = [
     title: 'Settings',
     icon: '⚙️',
     children: [
-      { title: 'Store settings', to: '/backstore/settings' }
+      { title: 'Store settings', to: '/backstore/settings' },
+      { title: 'Social Appearance', to: '/backstore/social-appearance' },
     ]
   }
 ]

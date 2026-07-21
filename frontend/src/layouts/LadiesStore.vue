@@ -3,12 +3,13 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCartStore } from '../stores/cart'
+import SocialIcon from '../components/SocialIcon.vue'
 import { useStorefront } from '../services/storefront'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const { storeName, storeLogo, storeTagline } = useStorefront()
+const { storeName, storeLogo, storeTagline, socialLinks } = useStorefront()
 
 const normalizedRole = computed(() => authStore.role?.toLowerCase() ?? '')
 const isLoggedIn = computed(() => !!authStore.token)
@@ -187,10 +188,24 @@ watch(isCustomer, (val) => {
       </div>
     </main>
 
-    <!-- Sticky footer copyright -->
-    <footer class="sticky bottom-0 z-40 border-t border-amber-100/70 bg-white/90 backdrop-blur-xl">
-      <div class="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-stone-500 sm:px-6">
-        &copy; {{ currentYear }} {{ storeName }}. All rights reserved.
+    <footer class="border-t border-amber-100/70 bg-white/90">
+      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <div class="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+          <p class="text-xs text-stone-400">&copy; {{ currentYear }} {{ storeName }}. All rights reserved.</p>
+          <div v-if="socialLinks.length" class="grid grid-cols-3 gap-2">
+            <a
+              v-for="link in socialLinks"
+              :key="link.id"
+              :href="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              :title="link.name"
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition hover:bg-stone-200"
+            >
+              <SocialIcon :icon="link.icon" class="h-4 w-4" />
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   </div>

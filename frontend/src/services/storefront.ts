@@ -21,8 +21,16 @@ export type StorefrontCoupon = {
   expires_at: string | null
 }
 
+export type SocialLink = {
+  id: number
+  name: string
+  url: string
+  icon: string
+}
+
 const storeLayout = ref<StoreLayoutType>('ladies')
 const storeName = ref('Store')
+const socialLinks = ref<SocialLink[]>([])
 const storeLogo = ref<string | null>(null)
 const storeFavicon = ref<string | null>(null)
 const storeTagline = ref<string | null>(null)
@@ -118,6 +126,7 @@ export const loadStorefront = async (force = false): Promise<void> => {
       storeCurrency.value = typeof store.currency === 'string' && store.currency.trim() ? store.currency.toUpperCase() : 'INR'
       storeShippingCharge.value = typeof store.shipping_charge === 'number' ? store.shipping_charge : 0
       storeFreeShippingThreshold.value = typeof store.free_shipping_threshold === 'number' ? store.free_shipping_threshold : null
+      socialLinks.value = Array.isArray(response?.data?.social_links) ? response.data.social_links : []
     } catch {
       storeLayout.value = 'ladies'
       storeName.value = 'Store'
@@ -150,6 +159,7 @@ export const useStorefront = () => {
     liveCoupons,
     upcomingCoupons,
     couponsLoaded,
+    socialLinks,
   }
 }
 
